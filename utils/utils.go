@@ -12,6 +12,14 @@ import (
 	"strings"
 )
 
+const (
+	Byte = 1
+	KiloByte = 1024 * Byte
+	MegaByte = 1024 * KiloByte
+	GigaByte = 1024 * MegaByte
+	TeraByte = 1024 * GigaByte
+)
+
 // FatalCheck prints & panics if there's an error.
 func FatalCheck(err error) {
 	if err != nil { logger.Panic(err) }
@@ -46,8 +54,13 @@ func ExistDir(folder string) bool {
 
 // FolderOf gets the folder of a download safely.
 func FolderOf(url string) string {
-	safePath := filepath.Join(os.Getenv("HOME"), config.ProgramFolder)
-	fullQualifyPath, err := filepath.Abs(filepath.Join(os.Getenv("HOME"), config.ProgramFolder, filepath.Base(url)))
+	base := filepath.Base(url)
+	if base == "." {
+		logger.Panic(errors.New("there is no basename for the url"))
+	}
+
+	safePath := filepath.Join(config.Home, config.ProgramFolder)
+	fullQualifyPath, err := filepath.Abs(filepath.Join(config.Home, config.ProgramFolder, filepath.Base(url)))
 	FatalCheck(err)
 
 	// must ensure full qualify path is CHILD of safe path
@@ -66,17 +79,21 @@ func FolderOf(url string) string {
 }
 
 // IsUrl checks whether a url is valid or not.
-func IsUrl(s string) bool {
-	_, err := url.Parse(s)
+func IsUrl(URL string) bool {
+	_, err := url.Parse(URL)
 	return err == nil
 }
 
 // ReadableMemorySize returns a prettier form of some memory size.
 func ReadableMemorySize(bytes int64) string {
-	megabytes := float64(bytes) / (1024 * 1024)
-	if megabytes < 1024 {
-		return fmt.Sprintf("%.1f MB", megabytes)
+	b := float64(bytes)
+	if bytes < MegaByte {
+		return fmt.Sprintf("%.1f KB", b / KiloByte)
+	} else if bytes < GigaByte {
+		return fmt.Sprintf("%.1f MB", b / MegaByte)
+	} else if bytes < TeraByte {
+		return fmt.Sprintf("%.1f GB", b / GigaByte)
 	} else {
-		return fmt.Sprintf("%.1f GB", megabytes)
+		return fmt.Sprintf("%.1f TB", b / TeraByte)
 	}
 }
