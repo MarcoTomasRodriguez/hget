@@ -1,5 +1,3 @@
-COMMIT = $$(git describe --always)
-
 deps:
 	@echo "====> Install dependencies..."
 	go get -d github.com/fatih/color
@@ -15,4 +13,4 @@ clean:
 
 install: deps
 	@echo "====> Build hget in ./bin "
-	go build -ldflags "-X main.GitCommit=\"$(COMMIT)\"" -o bin/hget
+	go build -o bin/hget
