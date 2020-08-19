@@ -3,7 +3,6 @@ package logger
 import (
 	"fmt"
 	"github.com/fatih/color"
-	"os"
 )
 
 // log prints a message with a coloured header.
@@ -20,5 +19,5 @@ func Warn(format string, a ...interface{}) { log(color.YellowString, "WARN: ", f
 // Error prints a message with the header "ERROR: " in red.
 func Error(format string, a ...interface{}) { log(color.RedString, "ERROR: ", format, a...) }
 
-// Panic prints the error and exits with the code 1.
-func Panic(err error) { Error("%v\n", err); os.Exit(1) }
+// Panic automatically exits the program giving a traceback.
+func Panic(err error) { panic(err) }
