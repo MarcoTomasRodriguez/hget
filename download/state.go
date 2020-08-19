@@ -53,7 +53,7 @@ func (state *State) Save() error {
 
 // Read reads the current state from $HOME/ProgramFolder/Filename/StateFilename
 func Read(task string) (*State, error) {
-	file := filepath.Join(os.Getenv("HOME"), config.ProgramFolder, task, config.StateFilename)
+	file := filepath.Join(config.Home, config.ProgramFolder, task, config.StateFilename)
 	logger.Info("Getting data from %s\n", file)
 
 	jsonState, err := ioutil.ReadFile(file)
@@ -69,7 +69,7 @@ func Read(task string) (*State, error) {
 
 // PrintTasks prints all the saved tasks
 func PrintTasks() error {
-	downloading, err := ioutil.ReadDir(filepath.Join(os.Getenv("HOME"), config.ProgramFolder))
+	downloading, err := ioutil.ReadDir(filepath.Join(config.Home, config.ProgramFolder))
 	if err != nil {
 		return err
 	}
