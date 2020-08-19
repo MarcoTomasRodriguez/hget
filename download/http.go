@@ -93,14 +93,14 @@ func NewHttpDownloader(url string, parallelism int, skipTLS bool) *HttpDownloade
 
 	// Check support for range download, if not, change parallelism to 1
 	if resp.Header.Get(acceptRangeHeader) == "" {
-		logger.Info("Target url is not supported range download, fallback to parallel 1\n")
+		logger.Info("Target url doesn't support range download, fallback to parallel 1\n")
 		parallelism = 1
 	}
 
 	// Get download range
 	contentLength := resp.Header.Get(contentLengthHeader)
 	if contentLength == "" {
-		logger.Info("Target url not contain Content-Length header, fallback to parallel 1\n")
+		logger.Info("Target url doesn't contain Content-Length header, fallback to parallel 1\n")
 		contentLength = "1" // Set to 1 because the progress bar doesn't accept 0 length
 		parallelism = 1
 		resumable = false
