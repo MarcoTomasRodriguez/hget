@@ -2,7 +2,7 @@
 
 This is a mantained version of [huydx/hget](https://github.com/huydx/hget).
 
-Unfortunately, the original author stopped giving support to this project; since the idea is cool, I decided to continue his project.
+Unfortunately, the original author stopped giving support to this project; since the idea is cool, I decided to continue it.
 
 In the future, this could be merged back.
 
