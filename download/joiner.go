@@ -2,7 +2,6 @@ package download
 
 import (
 	"github.com/MarcoTomasRodriguez/hget/config"
-	"github.com/MarcoTomasRodriguez/hget/logger"
 	"github.com/fatih/color"
 	"gopkg.in/cheggaaa/pb.v1"
 	"io"
@@ -27,7 +26,6 @@ func JoinFile(files []string, outputPath string) error {
 	// sort with file name or we will join files with wrong order
 	sort.Strings(files)
 
-	logger.Info("Start joining \n")
 	if config.DisplayProgressBar {
 		bar = pb.StartNew(len(files)).Prefix(color.CyanString("Joining"))
 	}
@@ -41,6 +39,7 @@ func JoinFile(files []string, outputPath string) error {
 
 		if bar != nil { bar.Increment() }
 	}
+
 	if bar != nil { bar.Finish() }
 
 	return nil

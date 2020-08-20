@@ -25,4 +25,7 @@ var UseHashLength = 16
 
 // SaveWithHash enables/disables the collision protection using a hash
 // while moving the file from inside the program to outside.
-var SaveWithHash = true
+var SaveWithHash = false
+
+// CopyNBytes sets the bytes to copy in a row from the response body.
+var CopyNBytes = int64(250)

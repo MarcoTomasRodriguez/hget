@@ -4,10 +4,12 @@ import (
 	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/MarcoTomasRodriguez/hget/logger"
 	"github.com/MarcoTomasRodriguez/hget/utils"
+	"math"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 )
 
 // Download downloads the file from the url considering the state of the task using parallelism.
@@ -27,6 +29,7 @@ func Download(url string, task *Task, parallelism int, skipTLS bool) {
 	errorChan := make(chan error, 1)
 	taskChan := make(chan Part, 1)
 	interruptChan := make(chan bool, parallelism)
+	writtenBytesChan := make(chan int64, parallelism)
 
 	var downloader *HttpDownloader
 	if task == nil {
@@ -41,7 +44,12 @@ func Download(url string, task *Task, parallelism int, skipTLS bool) {
 		}
 	}
 
-	go downloader.Do(doneChan, fileChan, errorChan, interruptChan, taskChan)
+	logger.Info("Starting download with %d connection(s).\n", downloader.Parallelism)
+
+	downloadStart := time.Now()
+	writtenBytes := int64(0)
+
+	go downloader.Do(doneChan, fileChan, errorChan, interruptChan, taskChan, writtenBytesChan)
 
 	for {
 		select {
@@ -55,6 +63,8 @@ func Download(url string, task *Task, parallelism int, skipTLS bool) {
 			logger.Panic(err)
 		case part := <-taskChan:
 			parts = append(parts, part)
+		case wb := <- writtenBytesChan:
+			writtenBytes += wb
 		case <-doneChan:
 			if isInterrupted {
 				if downloader.Resumable {
@@ -70,17 +80,31 @@ func Download(url string, task *Task, parallelism int, skipTLS bool) {
 			} else {
 				var outputName string
 
+				downloadTime := time.Since(downloadStart)
+				downloadSize := utils.ReadableMemorySize(writtenBytes)
+				downloadSpeed := utils.ReadableMemorySize(writtenBytes/int64(math.Max(downloadTime.Seconds(), 1))) + "/s"
+				logger.Info("Downloaded %s in %s at an average speed of %s.\n", downloadSize, downloadTime, downloadSpeed)
+
 				if config.SaveWithHash {
 					outputName = utils.FilenameWithHash(url)
 				} else {
 					outputName = utils.FilenameWithoutHash(url)
 				}
 
+				logger.Info("Joining process initiated.\n")
+
 				err = JoinFile(files, outputName)
 				utils.FatalCheck(err)
 
+				logger.Info("Joining process finished.\n")
+				logger.Info("Removing parts.\n")
+
 				err = os.RemoveAll(utils.FolderOf(url))
 				utils.FatalCheck(err)
+
+				outputPath, err := filepath.Abs(outputName)
+				utils.FatalCheck(err)
+				logger.Info("File saved in %s.\n", outputPath)
 
 				return
 			}

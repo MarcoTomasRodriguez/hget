@@ -102,22 +102,21 @@ func NewHttpDownloader(url string, parallelism int64, skipTLS bool) *HttpDownloa
 	contentLength := resp.Header.Get(contentLengthHeader)
 	if contentLength == "" {
 		logger.Info("Target url doesn't contain Content-Length header. Changing parallelism to 1.\n")
-		contentLength = "1" // Set to 1 because the progress bar doesn't accept 0 length
+		contentLength = "0"
 		parallelism = 1
 		resumable = false
+		config.DisplayProgressBar = false
 	}
-
-	logger.Info("Start download with %d connections.\n", parallelism)
 
 	// Get file length
 	fileLength, err := strconv.ParseInt(contentLength, 10, 64)
 	utils.FatalCheck(err)
 
 	// Display download target size
-	if contentLength == "1" {
-		logger.Info("Download size: not specified.\n")
+	if fileLength > 0 {
+		logger.Info("Download size: %s.\n", utils.ReadableMemorySize(fileLength))
 	} else {
-		logger.Info("Download target size: %s.\n", utils.ReadableMemorySize(fileLength))
+		logger.Info("Download size: not specified.\n")
 	}
 
 	// Return HttpDownloader struct
@@ -137,7 +136,7 @@ func NewHttpDownloader(url string, parallelism int64, skipTLS bool) *HttpDownloa
 
 // Do downloads from the downloader.
 func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan chan error, interruptChan chan bool,
-	taskSaveChan chan Part) {
+	taskSaveChan chan Part, writtenBytesChan chan int64) {
 	var ws sync.WaitGroup
 	var bars []*pb.ProgressBar
 	var barPool *pb.Pool
@@ -146,7 +145,8 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 	if config.DisplayProgressBar {
 		bars = make([]*pb.ProgressBar, 0)
 		for i, part := range d.Parts {
-			bar := pb.New64(part.RangeTo - part.RangeFrom).SetUnits(pb.U_BYTES).Prefix(color.YellowString(
+			partLength := part.RangeTo - part.RangeFrom
+			bar := pb.New64(partLength).SetUnits(pb.U_BYTES).Prefix(color.YellowString(
 				fmt.Sprintf("%s-%d", d.FileName, i)))
 			bars = append(bars, bar)
 		}
@@ -159,10 +159,10 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 		go func(d *HttpDownloader, loop int64, part Part) {
 			defer ws.Done()
 			var bar *pb.ProgressBar
+			var ranges string
 
 			if config.DisplayProgressBar { bar = bars[loop] }
 
-			var ranges string
 			if part.RangeTo != d.FileLength {
 				ranges = fmt.Sprintf("bytes=%d-%d", part.RangeFrom, part.RangeTo)
 			} else {
@@ -212,11 +212,12 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 					}
 					return
 				default:
-					written, err := io.CopyN(writer, resp.Body, 100)
+					written, err := io.CopyN(writer, resp.Body, config.CopyNBytes)
+					writtenBytesChan <- written
 					current += written
 					if err != nil {
 						if err != io.EOF { errorChan <- err }
-						bar.Finish()
+						if config.DisplayProgressBar { bar.Finish() }
 						fileChan <- part.Path
 						return
 					}
@@ -227,8 +228,9 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 
 	ws.Wait()
 
-	err = barPool.Stop()
-	if err != nil { errorChan <- err; return }
+	if config.DisplayProgressBar {
+		if err = barPool.Stop(); err != nil { errorChan <- err; return }
+	}
 
 	doneChan <- true
 }
