@@ -83,6 +83,10 @@ func FilenameWithoutHash(url string) string {
 		logger.Panic(errors.New("there is no basename for the url"))
 	}
 
+	if len(filename) > FilenameLengthLimit {
+		logger.Panic(fmt.Errorf("the filename length should never exceed the limit of %d", FilenameLengthLimit))
+	}
+
 	return filename
 }
 

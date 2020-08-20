@@ -30,24 +30,6 @@ func TestHashOf(t *testing.T) {
 	assert.NotEqual(t, HashOf(data[0]), HashOf(data[1]))
 }
 
-/*
-// RemoveHashFromFilename returns the basename + the hash of the url.
-func FilenameWithHash(url string) string {
-	base := filepath.Base(url)
-	hash := HashOf(url)[:config.UseHashLength]
-	if base == "." {
-		logger.Panic(errors.New("there is no basename for the url"))
-	}
-
-	filename := hash + "-" + base
-	if len(filename) > FilenameLengthLimit {
-		logger.Panic(fmt.Errorf("the filename length should never exceed the limit of %d",
-			FilenameLengthLimit - len(hash) + 1))
-	}
-
-	return filename
-}
-*/
 func TestFilenameWithHash(t *testing.T) {
 	data := []string{"localhost", "localhost/my-file.file"}
 
@@ -57,7 +39,17 @@ func TestFilenameWithHash(t *testing.T) {
 
 	assert.Panics(t, func() { FilenameWithHash(".") } )
 	assert.Panics(t, func() { FilenameWithHash(strings.Repeat("-", 255)) } )
+}
 
+func TestFilenameWithoutHash(t *testing.T) {
+	data := []string{"localhost", "localhost/my-file.file"}
+
+	for _, url := range data {
+		assert.Equal(t, filepath.Base(url), FilenameWithoutHash(url))
+	}
+
+	assert.Panics(t, func() { FilenameWithHash(".") } )
+	assert.Panics(t, func() { FilenameWithHash(strings.Repeat("-", 256)) } )
 }
 
 func TestFolderOf(t *testing.T) {
