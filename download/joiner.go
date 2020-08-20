@@ -21,7 +21,7 @@ func copyFile(src string, destFile *os.File) error {
 }
 
 // JoinFile joins all the parts of a file and saves them in the output path.
-func JoinFile(files []string, out string) error {
+func JoinFile(files []string, outputPath string) error {
 	var bar *pb.ProgressBar
 
 	// sort with file name or we will join files with wrong order
@@ -32,12 +32,12 @@ func JoinFile(files []string, out string) error {
 		bar = pb.StartNew(len(files)).Prefix(color.CyanString("Joining"))
 	}
 
-	outFile, err := os.OpenFile(out, os.O_CREATE|os.O_WRONLY, 0600)
+	outputFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil { return err }
-	defer outFile.Close()
+	defer outputFile.Close()
 
 	for _, file := range files {
-		if err = copyFile(file, outFile); err != nil { return err }
+		if err = copyFile(file, outputFile); err != nil { return err }
 
 		if bar != nil { bar.Increment() }
 	}

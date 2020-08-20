@@ -5,6 +5,7 @@ import (
 	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/stretchr/testify/assert"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -19,9 +20,46 @@ func TestMkdirIfNotExist(t *testing.T) {}
 
 func TestExistDir(t *testing.T) {}
 
+func TestHashOf(t *testing.T) {
+	data := []string{"test", "file", "test-test-test-test-test-test", "test-test-test-test-test-test-test-test-test-test-test"}
+
+	for _, str := range data {
+		assert.Equal(t, HashOf(str), HashOf(str))
+	}
+
+	assert.NotEqual(t, HashOf(data[0]), HashOf(data[1]))
+}
+
+func TestFilenameWithHash(t *testing.T) {
+	data := []string{"localhost", "localhost/my-file.file"}
+
+	for _, url := range data {
+		assert.Equal(t, HashOf(url)[:config.UseHashLength] + "-" + filepath.Base(url), FilenameWithHash(url))
+	}
+
+	assert.Panics(t, func() { FilenameWithHash(".") } )
+	assert.Panics(t, func() { FilenameWithHash(strings.Repeat("-", 255)) } )
+}
+
+func TestFilenameWithoutHash(t *testing.T) {
+	data := []string{"localhost", "localhost/my-file.file"}
+
+	for _, url := range data {
+		assert.Equal(t, filepath.Base(url), FilenameWithoutHash(url))
+	}
+
+	assert.Panics(t, func() { FilenameWithHash(".") } )
+	assert.Panics(t, func() { FilenameWithHash(strings.Repeat("-", 256)) } )
+}
+
 func TestFolderOf(t *testing.T) {
-	assert.Equal(t, FolderOf("localhost/my-file.file"), filepath.Join(config.Home, config.ProgramFolder, "my-file.file"))
-	assert.Equal(t, FolderOf("localhost"), filepath.Join(config.Home, config.ProgramFolder, "localhost"))
+	// HashOf("localhost")[:config.UseHashLength] + "-localhost"
+	data := []string{"localhost", "localhost/my-file.file"}
+
+	for _, url := range data {
+		assert.Equal(t, filepath.Join(config.Home, config.ProgramFolder, FilenameWithHash(url)), FolderOf(url))
+	}
+
 	assert.Panics(t, func() { FolderOf("localhost/../") })
 	assert.Panics(t, func() { FolderOf("localhost/.") })
 	assert.Panics(t, func() { FolderOf("") })
