@@ -12,9 +12,9 @@ var Home = os.Getenv("HOME")
 // about the ongoing downloads. This path is relative to $HOME.
 var ProgramFolder = ".hget/"
 
-// StateFilename represents the state of a download. This file will be located
+// TaskFilename represents the state of a download. This file will be located
 // in $HOME/ProgramFolder/Download
-var StateFilename = "state.json"
+var TaskFilename = "task.json"
 
 // DisplayProgressBar enables/disables the display of the progress bar.
 var DisplayProgressBar = isatty.IsTerminal(os.Stdout.Fd())

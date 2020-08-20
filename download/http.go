@@ -136,7 +136,7 @@ func NewHttpDownloader(url string, parallelism int, skipTLS bool) *HttpDownloade
 
 // Do downloads from the downloader.
 func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan chan error, interruptChan chan bool,
-	stateSaveChan chan Part) {
+	taskSaveChan chan Part) {
 	var ws sync.WaitGroup
 	var bars []*pb.ProgressBar
 	var barPool *pb.Pool
@@ -203,7 +203,7 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 			for {
 				select {
 				case <- interruptChan:
-					stateSaveChan <- Part{
+					taskSaveChan <- Part{
 						Url: d.Url,
 						Path: part.Path,
 						RangeFrom: current + part.RangeFrom,

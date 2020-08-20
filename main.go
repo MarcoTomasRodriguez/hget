@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/MarcoTomasRodriguez/hget/download"
 	"github.com/MarcoTomasRodriguez/hget/logger"
 	"github.com/MarcoTomasRodriguez/hget/utils"
@@ -19,28 +20,31 @@ hget resume [TaskName]
 }
 
 func tasksCommand() {
-	err := download.PrintTasks()
+	tasks, err := download.GetAllTasks()
 	utils.FatalCheck(err)
+
+	logger.Info("Currently on going download:\n")
+	for _, task := range tasks { fmt.Println(task) }
 }
 
 func resumeCommand(args []string, conn *int, skipTLS *bool) {
 	if len(args) < 2 {
-		logger.Error("downloading task name is required\n")
+		logger.Error("downloading taskName name is required\n")
 		printUsage()
 		os.Exit(1)
 	}
 
-	var task string
+	var taskName string
 	if utils.IsUrl(args[1]) {
-		task = filepath.Base(args[1])
+		taskName = filepath.Base(args[1])
 	} else {
-		task = args[1]
+		taskName = args[1]
 	}
 
-	state, err := download.Read(task)
+	task, err := download.ReadTask(taskName)
 	utils.FatalCheck(err)
 
-	download.Download(state.Url, state, *conn, *skipTLS)
+	download.Download(task.Url, task, *conn, *skipTLS)
 }
 
 func downloadCommand(args []string, conn *int, skipTLS *bool) {

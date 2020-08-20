@@ -9,8 +9,8 @@ import (
 	"syscall"
 )
 
-// Download downloads the file from the url considering the state using parallelism.
-func Download(url string, state *State, conn int, skipTLS bool) {
+// Download downloads the file from the url considering the state of the task using parallelism.
+func Download(url string, task *Task, conn int, skipTLS bool) {
 	var err error
 
 	signalChan := make(chan os.Signal, 1)
@@ -24,23 +24,23 @@ func Download(url string, state *State, conn int, skipTLS bool) {
 	doneChan := make(chan bool, conn)
 	fileChan := make(chan string, conn)
 	errorChan := make(chan error, 1)
-	stateChan := make(chan Part, 1)
+	taskChan := make(chan Part, 1)
 	interruptChan := make(chan bool, conn)
 
 	var downloader *HttpDownloader
-	if state == nil {
+	if task == nil {
 		downloader = NewHttpDownloader(url, conn, skipTLS)
 	} else {
 		downloader = &HttpDownloader{
-			Url:         state.Url,
-			FileName:    filepath.Base(state.Url),
-			Parallelism: int64(len(state.Parts)),
-			Parts:       state.Parts,
+			Url:         task.Url,
+			FileName:    filepath.Base(task.Url),
+			Parallelism: int64(len(task.Parts)),
+			Parts:       task.Parts,
 			Resumable:   true,
 		}
 	}
 
-	go downloader.Do(doneChan, fileChan, errorChan, interruptChan, stateChan)
+	go downloader.Do(doneChan, fileChan, errorChan, interruptChan, taskChan)
 
 	for {
 		select {
@@ -52,14 +52,14 @@ func Download(url string, state *State, conn int, skipTLS bool) {
 			files = append(files, file)
 		case err := <-errorChan:
 			logger.Panic(err)
-		case part := <-stateChan:
+		case part := <-taskChan:
 			parts = append(parts, part)
 		case <-doneChan:
 			if isInterrupted {
 				if downloader.Resumable {
-					logger.Info("Interrupted, saving state... \n")
-					s := &State{Url: url, Parts: parts}
-					err := s.Save()
+					logger.Info("Interrupted, saving task... \n")
+					s := &Task{Url: url, Parts: parts}
+					err := s.SaveTask()
 					if err != nil { logger.Info("%v\n", err) }
 					return
 				} else {
