@@ -7,15 +7,14 @@ import (
 	"github.com/MarcoTomasRodriguez/hget/logger"
 	"github.com/MarcoTomasRodriguez/hget/utils"
 	"os"
-	"path/filepath"
 	"runtime"
 )
 
 func printUsage() {
 	logger.Info(`Usage:
-hget [URL] [-n connection] [-skip-tls true]
+hget [URL] [-n CPUs] [-skip-tls true]
 hget tasks
-hget resume [TaskName]
+hget resume [TaskName | URL]
 `)
 }
 
@@ -29,14 +28,14 @@ func tasksCommand() {
 
 func resumeCommand(args []string, conn *int, skipTLS *bool) {
 	if len(args) < 2 {
-		logger.Error("downloading taskName name is required\n")
+		logger.Error("TaskName or URL is required\n")
 		printUsage()
 		os.Exit(1)
 	}
 
 	var taskName string
 	if utils.IsUrl(args[1]) {
-		taskName = filepath.Base(args[1])
+		taskName = utils.FilenameWithHash(args[1])
 	} else {
 		taskName = args[1]
 	}
@@ -60,13 +59,13 @@ func downloadCommand(args []string, conn *int, skipTLS *bool) {
 }
 
 func main() {
-	conn    := flag.Int("n", runtime.NumCPU(), "connection")
+	conn    := flag.Int("n", runtime.NumCPU(), "number of threads")
 	skipTLS := flag.Bool("skip-tls", true, "skip verify certificate for https")
 
 	flag.Parse()
 	args := flag.Args()
 	if len(args) < 1 {
-		logger.Error("url is required\n")
+		logger.Error("URL is required\n")
 		printUsage()
 		os.Exit(1)
 	}

@@ -1,6 +1,7 @@
 package download
 
 import (
+	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/MarcoTomasRodriguez/hget/logger"
 	"github.com/MarcoTomasRodriguez/hget/utils"
 	"os"
@@ -67,7 +68,15 @@ func Download(url string, task *Task, parallelism int, skipTLS bool) {
 					return
 				}
 			} else {
-				err = JoinFile(files, filepath.Base(url))
+				var outputName string
+
+				if config.SaveWithHash {
+					outputName = utils.FilenameWithHash(url)
+				} else {
+					outputName = utils.FilenameWithoutHash(url)
+				}
+
+				err = JoinFile(files, outputName)
 				utils.FatalCheck(err)
 
 				err = os.RemoveAll(utils.FolderOf(url))

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"github.com/MarcoTomasRodriguez/hget/config"
@@ -13,6 +14,7 @@ import (
 )
 
 const (
+	FilenameLengthLimit = 255
 	Byte = 1
 	KiloByte = 1024 * Byte
 	MegaByte = 1024 * KiloByte
@@ -52,15 +54,46 @@ func ExistDir(folder string) bool {
 	return err == nil
 }
 
-// FolderOf gets the folder of a download safely.
-func FolderOf(url string) string {
+// HashOf returns the sha256 sum256 hash of the parameter.
+func HashOf(str string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(str)))
+}
+
+// RemoveHashFromFilename returns the basename + the hash of the url.
+func FilenameWithHash(url string) string {
 	base := filepath.Base(url)
+	hash := HashOf(url)[:config.UseHashLength]
 	if base == "." {
 		logger.Panic(errors.New("there is no basename for the url"))
 	}
 
+	filename := hash + "-" + base
+	if len(filename) > FilenameLengthLimit {
+		logger.Panic(fmt.Errorf("the filename length should never exceed the limit of %d",
+			FilenameLengthLimit - len(hash) + 1))
+	}
+
+	return filename
+}
+
+// FilenameWithoutHash returns the basename of the url.
+func FilenameWithoutHash(url string) string {
+	filename := filepath.Base(url)
+	if filename == "." {
+		logger.Panic(errors.New("there is no basename for the url"))
+	}
+
+	if len(filename) > FilenameLengthLimit {
+		logger.Panic(fmt.Errorf("the filename length should never exceed the limit of %d", FilenameLengthLimit))
+	}
+
+	return filename
+}
+
+// FolderOf gets the folder of a download safely.
+func FolderOf(url string) string {
 	safePath := filepath.Join(config.Home, config.ProgramFolder)
-	fullQualifyPath, err := filepath.Abs(filepath.Join(config.Home, config.ProgramFolder, filepath.Base(url)))
+	fullQualifyPath, err := filepath.Abs(filepath.Join(config.Home, config.ProgramFolder, FilenameWithHash(url)))
 	FatalCheck(err)
 
 	// must ensure full qualify path is CHILD of safe path

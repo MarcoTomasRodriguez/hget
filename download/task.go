@@ -16,7 +16,7 @@ type Task struct {
 	Parts []Part
 }
 
-// Part is a slice of the file.
+// Part is a slice of the file downloaded.
 type Part struct {
 	Url       string
 	Path      string
