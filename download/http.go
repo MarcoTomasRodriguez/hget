@@ -43,15 +43,16 @@ type HttpDownloader struct {
 }
 
 // partCalculate calculates the parts.
-func partCalculate(par int64, len int64, url string) []Part {
+func partCalculate(url string, parallelism int64, length int64) []Part {
 	ret := make([]Part, 0)
-	for j := int64(0); j < par; j++ {
-		from := (len / par) * j
-		var to int64
-		if j < par-1 {
-			to = (len/par)*(j+1) - 1
+	for current := int64(0); current < parallelism; current++ {
+		from := (length / parallelism) * current
+		to := int64(0)
+
+		if current < parallelism - 1 {
+			to = (length/parallelism) * (current + 1) - int64(1)
 		} else {
-			to = len
+			to = length
 		}
 
 		file := filepath.Base(url)
@@ -61,7 +62,7 @@ func partCalculate(par int64, len int64, url string) []Part {
 			os.Exit(1)
 		}
 
-		filename := fmt.Sprintf("%s.part%d", file, j)
+		filename := fmt.Sprintf("%s.part%d", file, current)
 		path := filepath.Join(folder, filename) // ~/.hget/download-file-name/part-name
 		ret = append(ret, Part{Url: url, Path: path, RangeFrom: from, RangeTo: to})
 	}
@@ -70,7 +71,7 @@ func partCalculate(par int64, len int64, url string) []Part {
 }
 
 // NewHttpDownloader initializes the download and returns a downloader.
-func NewHttpDownloader(url string, parallelism int, skipTLS bool) *HttpDownloader {
+func NewHttpDownloader(url string, parallelism int64, skipTLS bool) *HttpDownloader {
 	// Parse the raw-url into a URL structure
 	parsedUrl, err := netUrl.Parse(url)
 	utils.FatalCheck(err)
@@ -124,8 +125,8 @@ func NewHttpDownloader(url string, parallelism int, skipTLS bool) *HttpDownloade
 		Url:         url,
 		FileName:    filepath.Base(url),
 		FileLength:  fileLength,
-		Parts:       partCalculate(int64(parallelism), fileLength, url),
-		Parallelism: int64(parallelism),
+		Parts:       partCalculate(url, parallelism, fileLength),
+		Parallelism: parallelism,
 		Ips:         ipsStr,
 		SkipTLS:     skipTLS,
 		Resumable:   resumable,

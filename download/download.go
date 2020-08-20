@@ -10,7 +10,7 @@ import (
 )
 
 // Download downloads the file from the url considering the state of the task using parallelism.
-func Download(url string, task *Task, conn int, skipTLS bool) {
+func Download(url string, task *Task, parallelism int, skipTLS bool) {
 	var err error
 
 	signalChan := make(chan os.Signal, 1)
@@ -21,15 +21,15 @@ func Download(url string, task *Task, conn int, skipTLS bool) {
 	var parts = make([]Part, 0)
 	var isInterrupted = false
 
-	doneChan := make(chan bool, conn)
-	fileChan := make(chan string, conn)
+	doneChan := make(chan bool, parallelism)
+	fileChan := make(chan string, parallelism)
 	errorChan := make(chan error, 1)
 	taskChan := make(chan Part, 1)
-	interruptChan := make(chan bool, conn)
+	interruptChan := make(chan bool, parallelism)
 
 	var downloader *HttpDownloader
 	if task == nil {
-		downloader = NewHttpDownloader(url, conn, skipTLS)
+		downloader = NewHttpDownloader(url, int64(parallelism), skipTLS)
 	} else {
 		downloader = &HttpDownloader{
 			Url:         task.Url,
@@ -47,7 +47,7 @@ func Download(url string, task *Task, conn int, skipTLS bool) {
 		case <-signalChan:
 			// send par number of interrupt for each routine
 			isInterrupted = true
-			for i := 0; i < conn; i++ { interruptChan <- true }
+			for i := 0; i < parallelism; i++ { interruptChan <- true }
 		case file := <-fileChan:
 			files = append(files, file)
 		case err := <-errorChan:
@@ -69,8 +69,10 @@ func Download(url string, task *Task, conn int, skipTLS bool) {
 			} else {
 				err = JoinFile(files, filepath.Base(url))
 				utils.FatalCheck(err)
+
 				err = os.RemoveAll(utils.FolderOf(url))
 				utils.FatalCheck(err)
+
 				return
 			}
 		}
