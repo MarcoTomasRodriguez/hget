@@ -18,3 +18,11 @@ var TaskFilename = "task.json"
 
 // DisplayProgressBar enables/disables the display of the progress bar.
 var DisplayProgressBar = isatty.IsTerminal(os.Stdout.Fd())
+
+// UseHashLength sets the length of the hash used to prevent collisions.
+// Note that this can never be more than 32
+var UseHashLength = 16
+
+// SaveWithHash enables/disables the collision protection using a hash
+// while moving the file from inside the program to outside.
+var SaveWithHash = true
