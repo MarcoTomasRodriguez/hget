@@ -14,8 +14,6 @@ func TestFatalCheck(t *testing.T) {
 	assert.NotPanics(t, func() { FatalCheck(nil) }, "FatalCheck should not panic on error nil")
 }
 
-func TestStringifyIpsV4(t *testing.T) {}
-
 func TestMkdirIfNotExist(t *testing.T) {}
 
 func TestExistDir(t *testing.T) {}
@@ -81,4 +79,15 @@ func TestReadableMemorySize(t *testing.T) {
 	assert.Equal(t, "2.5 MB", ReadableMemorySize(MegaByte*2.5))
 	assert.Equal(t, "1.0 GB", ReadableMemorySize(GigaByte))
 	assert.Equal(t, "1.0 TB", ReadableMemorySize(TeraByte))
+}
+
+func TestPartName(t *testing.T) {
+	assert.Equal(t, "part.0", PartName(0, 1))
+	assert.Equal(t, "part.9", PartName(9, 10))
+	assert.Equal(t, "part.00", PartName(0, 100))
+	assert.Equal(t, "part.00", PartName(0, 100))
+	assert.Equal(t, "part.99", PartName(99, 100))
+	assert.Equal(t, "part.100", PartName(100, 101))
+	assert.Equal(t, "part.500", PartName(500, 1000))
+	assert.Equal(t, "part.12034", PartName(12034, 14623))
 }

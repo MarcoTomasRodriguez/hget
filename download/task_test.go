@@ -13,6 +13,8 @@ func TestTask(t *testing.T) {
 	task := Task{Url: "localhost/my_file.file", Parts: []Part{}}
 	task2 := Task{Url: "localhost/another-file", Parts: []Part{}}
 
+	assert.NoError(t, RemoveAllTasks())
+
 	assert.NoError(t, task.SaveTask())
 
 	assert.True(t, utils.ExistDir(utils.FolderOf(task.Url)))

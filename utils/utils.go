@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/MarcoTomasRodriguez/hget/logger"
-	"net"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -25,17 +26,6 @@ const (
 // FatalCheck prints & panics if there's an error.
 func FatalCheck(err error) {
 	if err != nil { logger.Panic(err) }
-}
-
-// StringifyIpsV4 converts all the ipv4 ips to string.
-func StringifyIpsV4(ips []net.IP) []string {
-	var ret = make([]string, 0)
-	for _, ip := range ips {
-		if ip.To4() != nil {
-			ret = append(ret, ip.String())
-		}
-	}
-	return ret
 }
 
 // MkdirIfNotExist makes a directory with perm 0700 if not exists.
@@ -129,4 +119,12 @@ func ReadableMemorySize(bytes int64) string {
 	} else {
 		return fmt.Sprintf("%.1f TB", b / TeraByte)
 	}
+}
+
+// PartName creates the part name with the part number formatted with as many leading zeros as needed.
+// For example, PartName(0, 100) = "part.00", PartName(100, 100) = "part.99" and PartName(101, 101) = "part.100".
+func PartName(part int64, parallelism int64) string {
+	leadingZeros := int(math.Max(math.Log10(float64(parallelism - 1)) + 1, 1))
+	fmt.Println(leadingZeros)
+	return fmt.Sprintf("part.%0" + strconv.Itoa(leadingZeros) + "d", part)
 }

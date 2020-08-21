@@ -2,12 +2,14 @@ package download
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/MarcoTomasRodriguez/hget/logger"
 	"github.com/MarcoTomasRodriguez/hget/utils"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Task represents a download.
@@ -18,6 +20,7 @@ type Task struct {
 
 // Part is a slice of the file downloaded.
 type Part struct {
+	Index     int64
 	Path      string
 	RangeFrom int64
 	RangeTo   int64
@@ -79,4 +82,26 @@ func GetAllTasks() ([]string, error) {
 	}
 
 	return tasks, nil
+}
+
+// RemoveTask removes a task by taskName.
+func RemoveTask(taskName string) error {
+	if !strings.Contains(taskName, "..") {
+		return os.RemoveAll(filepath.Join(config.Home, config.ProgramFolder, taskName))
+	} else {
+		return fmt.Errorf("illegal task name")
+	}
+}
+
+// RemoveAllTasks removes all the tasks.
+func RemoveAllTasks() error {
+	tasks, err := GetAllTasks()
+	if err != nil { return err }
+
+	for _, task := range tasks {
+		err := RemoveTask(task)
+		if err != nil { return err }
+	}
+
+	return nil
 }
