@@ -11,17 +11,25 @@ In the future, this could be merged back.
 ```
 $ go get -d github.com/MarcoTomasRodriguez/hget
 $ cd $GOPATH/src/github.com/MarcoTomasRodriguez/hget
-$ make clean install
+$ make install
 ```
 
-Binary file will be built at ./bin/hget, you can copy to /usr/bin or /usr/local/bin and even `alias wget hget` to replace wget totally.
+This will install the program with the golang default installer.
+
+Alternatively, you can build the binary directly with:
+
+```
+$ go get -d github.com/MarcoTomasRodriguez/hget
+$ cd $GOPATH/src/github.com/MarcoTomasRodriguez/hget
+$ make clean build
+```
 
 ## Usage
 
 ```
-hget [Url] [-n parallel] [-skip-tls false] // to download url, with n connections, and not skip tls certificate
-hget tasks // get interrupted tasks
-hget resume [TaskName | URL] // to resume task
+hget [-n parallel] [Url] // Downloads a file using n threads. The default is the number of cores.
+hget tasks // Gets all the interrupted tasks.
+hget resume [TaskName | URL] // Resumes a task given a TaskName or URL.
 ```
 
 To interrupt any on-downloading process, just ctrl-c or ctrl-d at the middle of the download, hget will safely save your data and you will be able to resume later.
