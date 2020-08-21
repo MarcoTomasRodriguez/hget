@@ -15,7 +15,9 @@ import (
 // copyFile copies the content from a src file to an already opened destFile
 func copyFile(src string, destFile *os.File) error {
 	srcFile, err := os.OpenFile(src, os.O_RDONLY, 0600)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer srcFile.Close()
 
 	_, err = io.Copy(destFile, srcFile)
@@ -34,16 +36,24 @@ func JoinParts(parts []string, outputPath string) error {
 	}
 
 	outputFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer outputFile.Close()
 
 	for _, file := range parts {
-		if err = copyFile(file, outputFile); err != nil { return err }
+		if err = copyFile(file, outputFile); err != nil {
+			return err
+		}
 
-		if bar != nil { bar.Increment() }
+		if bar != nil {
+			bar.Increment()
+		}
 	}
 
-	if bar != nil { bar.Finish() }
+	if bar != nil {
+		bar.Finish()
+	}
 
 	return nil
 }
@@ -55,8 +65,8 @@ func CalculateParts(url string, parallelism int64, length int64) []Part {
 		from := (length / parallelism) * current
 		to := length
 
-		if current < parallelism - 1 {
-			to = (length/parallelism) * (current + 1) - int64(1)
+		if current < parallelism-1 {
+			to = (length/parallelism)*(current+1) - int64(1)
 		}
 
 		folder := utils.FolderOf(url)

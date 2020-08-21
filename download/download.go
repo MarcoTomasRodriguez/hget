@@ -22,7 +22,7 @@ import (
 
 var (
 	// In the future, make skipTLS optional to improve the user security.
-	transport = &http.Transport{ TLSClientConfig: &tls.Config{InsecureSkipVerify: true} }
+	transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	client    = &http.Client{Transport: transport}
 	resumable = true
 )
@@ -86,14 +86,16 @@ func Download(url string, task *Task, parallelism int) {
 		case <-signalChan:
 			// send par number of interrupt for each routine
 			isInterrupted = true
-			for i := 0; i < parallelism; i++ { interruptChan <- true }
+			for i := 0; i < parallelism; i++ {
+				interruptChan <- true
+			}
 		case file := <-fileChan:
 			files = append(files, file)
 		case err := <-errorChan:
 			logger.Panic(err)
 		case part := <-taskChan:
 			parts = append(parts, part)
-		case wb := <- writtenBytesChan:
+		case wb := <-writtenBytesChan:
 			writtenBytes += wb
 		case <-doneChan:
 			if isInterrupted {
@@ -101,7 +103,9 @@ func Download(url string, task *Task, parallelism int) {
 					logger.Info("Interrupted, saving task... \n")
 					s := &Task{Url: url, Parts: parts}
 					err := s.SaveTask()
-					if err != nil { logger.Info("%v\n", err) }
+					if err != nil {
+						logger.Info("%v\n", err)
+					}
 					return
 				} else {
 					logger.Warn("Interrupted, but downloading url is not resumable, silently die\n")
@@ -228,19 +232,30 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 
 			// send request
 			req, err := http.NewRequest("GET", d.Url, nil)
-			if err != nil { errorChan <- err; return }
+			if err != nil {
+				errorChan <- err
+				return
+			}
 
-			if d.Parallelism > 1 { req.Header.Add("Range", ranges) }
+			if d.Parallelism > 1 {
+				req.Header.Add("Range", ranges)
+			}
 
 			// write to file
 			resp, err := client.Do(req)
-			if err != nil { errorChan <- err; return }
+			if err != nil {
+				errorChan <- err
+				return
+			}
 			defer resp.Body.Close()
 
 			f, err := os.OpenFile(part.Path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 
 			defer f.Close()
-			if err != nil { errorChan <- err; return }
+			if err != nil {
+				errorChan <- err
+				return
+			}
 
 			var writer io.Writer
 			if config.DisplayProgressBar {
@@ -252,11 +267,11 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 			current := int64(0)
 			for {
 				select {
-				case <- interruptChan:
+				case <-interruptChan:
 					taskSaveChan <- Part{
-						Path: part.Path,
+						Path:      part.Path,
 						RangeFrom: current + part.RangeFrom,
-						RangeTo: part.RangeTo,
+						RangeTo:   part.RangeTo,
 					}
 					return
 				default:
@@ -264,8 +279,12 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 					writtenBytesChan <- written
 					current += written
 					if err != nil {
-						if err != io.EOF { errorChan <- err }
-						if config.DisplayProgressBar { bar.Finish() }
+						if err != io.EOF {
+							errorChan <- err
+						}
+						if config.DisplayProgressBar {
+							bar.Finish()
+						}
 						fileChan <- part.Path
 						return
 					}
@@ -276,13 +295,19 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 
 	if config.DisplayProgressBar {
 		barPool, err = pb.StartPool(bars...)
-		if err != nil { errorChan <- err; return }
+		if err != nil {
+			errorChan <- err
+			return
+		}
 	}
 
 	ws.Wait()
 
 	if config.DisplayProgressBar {
-		if err = barPool.Stop(); err != nil { errorChan <- err; return }
+		if err = barPool.Stop(); err != nil {
+			errorChan <- err
+			return
+		}
 	}
 
 	doneChan <- true

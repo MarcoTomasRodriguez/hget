@@ -7,7 +7,7 @@ import (
 
 // log prints a message with a coloured header.
 func log(colorFn func(format string, a ...interface{}) string, header string, format string, a ...interface{}) {
-	fmt.Printf(colorFn(header) + format, a...)
+	fmt.Printf(colorFn(header)+format, a...)
 }
 
 // Info prints a message with the header "INFO: " in cyan.

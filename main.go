@@ -23,7 +23,9 @@ func tasksCommand() {
 	utils.FatalCheck(err)
 
 	logger.Info("Currently on going download:\n")
-	for _, task := range tasks { fmt.Println(task) }
+	for _, task := range tasks {
+		fmt.Println(task)
+	}
 }
 
 func resumeCommand(args []string, conn *int) {
@@ -70,8 +72,14 @@ func main() {
 	}
 
 	switch args[0] {
-	case "tasks": tasksCommand(); break
-	case "resume": resumeCommand(args, conn); break
-	default: downloadCommand(args, conn); break
+	case "tasks":
+		tasksCommand()
+		break
+	case "resume":
+		resumeCommand(args, conn)
+		break
+	default:
+		downloadCommand(args, conn)
+		break
 	}
 }

@@ -32,11 +32,11 @@ func TestFilenameWithHash(t *testing.T) {
 	data := []string{"localhost", "localhost/my-file.file"}
 
 	for _, url := range data {
-		assert.Equal(t, HashOf(url)[:config.UseHashLength] + "-" + filepath.Base(url), FilenameWithHash(url))
+		assert.Equal(t, HashOf(url)[:config.UseHashLength]+"-"+filepath.Base(url), FilenameWithHash(url))
 	}
 
-	assert.Panics(t, func() { FilenameWithHash(".") } )
-	assert.Panics(t, func() { FilenameWithHash(strings.Repeat("-", 255)) } )
+	assert.Panics(t, func() { FilenameWithHash(".") })
+	assert.Panics(t, func() { FilenameWithHash(strings.Repeat("-", 255)) })
 }
 
 func TestFilenameWithoutHash(t *testing.T) {
@@ -46,8 +46,8 @@ func TestFilenameWithoutHash(t *testing.T) {
 		assert.Equal(t, filepath.Base(url), FilenameWithoutHash(url))
 	}
 
-	assert.Panics(t, func() { FilenameWithHash(".") } )
-	assert.Panics(t, func() { FilenameWithHash(strings.Repeat("-", 256)) } )
+	assert.Panics(t, func() { FilenameWithHash(".") })
+	assert.Panics(t, func() { FilenameWithHash(strings.Repeat("-", 256)) })
 }
 
 func TestFolderOf(t *testing.T) {
@@ -71,8 +71,8 @@ func TestIsUrl(t *testing.T) {
 }
 
 func TestReadableMemorySize(t *testing.T) {
-	assert.Equal(t, "0.0 KB", ReadableMemorySize(Byte * 10))
-	assert.Equal(t, "0.5 KB", ReadableMemorySize(KiloByte * 0.5))
+	assert.Equal(t, "0.0 KB", ReadableMemorySize(Byte*10))
+	assert.Equal(t, "0.5 KB", ReadableMemorySize(KiloByte*0.5))
 	assert.Equal(t, "1.0 KB", ReadableMemorySize(KiloByte))
 	assert.Equal(t, "1024.0 KB", ReadableMemorySize(MegaByte-1))
 	assert.Equal(t, "1.0 MB", ReadableMemorySize(MegaByte))

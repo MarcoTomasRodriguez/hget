@@ -16,16 +16,18 @@ import (
 
 const (
 	FilenameLengthLimit = 255
-	Byte = 1
-	KiloByte = 1024 * Byte
-	MegaByte = 1024 * KiloByte
-	GigaByte = 1024 * MegaByte
-	TeraByte = 1024 * GigaByte
+	Byte                = 1
+	KiloByte            = 1024 * Byte
+	MegaByte            = 1024 * KiloByte
+	GigaByte            = 1024 * MegaByte
+	TeraByte            = 1024 * GigaByte
 )
 
 // FatalCheck prints & panics if there's an error.
 func FatalCheck(err error) {
-	if err != nil { logger.Panic(err) }
+	if err != nil {
+		logger.Panic(err)
+	}
 }
 
 // MkdirIfNotExist makes a directory with perm 0700 if not exists.
@@ -60,7 +62,7 @@ func FilenameWithHash(url string) string {
 	filename := hash + "-" + base
 	if len(filename) > FilenameLengthLimit {
 		logger.Panic(fmt.Errorf("the filename length should never exceed the limit of %d",
-			FilenameLengthLimit - len(hash) + 1))
+			FilenameLengthLimit-len(hash)+1))
 	}
 
 	return filename
@@ -111,20 +113,20 @@ func IsUrl(URL string) bool {
 func ReadableMemorySize(bytes int64) string {
 	b := float64(bytes)
 	if bytes < MegaByte {
-		return fmt.Sprintf("%.1f KB", b / KiloByte)
+		return fmt.Sprintf("%.1f KB", b/KiloByte)
 	} else if bytes < GigaByte {
-		return fmt.Sprintf("%.1f MB", b / MegaByte)
+		return fmt.Sprintf("%.1f MB", b/MegaByte)
 	} else if bytes < TeraByte {
-		return fmt.Sprintf("%.1f GB", b / GigaByte)
+		return fmt.Sprintf("%.1f GB", b/GigaByte)
 	} else {
-		return fmt.Sprintf("%.1f TB", b / TeraByte)
+		return fmt.Sprintf("%.1f TB", b/TeraByte)
 	}
 }
 
 // PartName creates the part name with the part number formatted with as many leading zeros as needed.
 // For example, PartName(0, 100) = "part.00", PartName(100, 100) = "part.99" and PartName(101, 101) = "part.100".
 func PartName(part int64, parallelism int64) string {
-	leadingZeros := int(math.Max(math.Log10(float64(parallelism - 1)) + 1, 1))
+	leadingZeros := int(math.Max(math.Log10(float64(parallelism-1))+1, 1))
 	fmt.Println(leadingZeros)
-	return fmt.Sprintf("part.%0" + strconv.Itoa(leadingZeros) + "d", part)
+	return fmt.Sprintf("part.%0"+strconv.Itoa(leadingZeros)+"d", part)
 }

@@ -78,7 +78,9 @@ func GetAllTasks() ([]string, error) {
 	}
 
 	for _, t := range tasksFolder {
-		if t.IsDir() { tasks = append(tasks, t.Name()) }
+		if t.IsDir() {
+			tasks = append(tasks, t.Name())
+		}
 	}
 
 	return tasks, nil
@@ -96,11 +98,15 @@ func RemoveTask(taskName string) error {
 // RemoveAllTasks removes all the tasks.
 func RemoveAllTasks() error {
 	tasks, err := GetAllTasks()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	for _, task := range tasks {
 		err := RemoveTask(task)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
