@@ -13,7 +13,7 @@ import (
 )
 
 // Download downloads the file from the url considering the state of the task using parallelism.
-func Download(url string, task *Task, parallelism int, skipTLS bool) {
+func Download(url string, task *Task, parallelism int) {
 	var err error
 
 	signalChan := make(chan os.Signal, 1)
@@ -33,7 +33,7 @@ func Download(url string, task *Task, parallelism int, skipTLS bool) {
 
 	var downloader *HttpDownloader
 	if task == nil {
-		downloader = NewHttpDownloader(url, int64(parallelism), skipTLS)
+		downloader = NewHttpDownloader(url, int64(parallelism))
 	} else {
 		downloader = &HttpDownloader{
 			Url:         task.Url,

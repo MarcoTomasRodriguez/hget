@@ -26,7 +26,7 @@ func tasksCommand() {
 	for _, task := range tasks { fmt.Println(task) }
 }
 
-func resumeCommand(args []string, conn *int, skipTLS *bool) {
+func resumeCommand(args []string, conn *int) {
 	if len(args) < 2 {
 		logger.Error("TaskName or URL is required\n")
 		printUsage()
@@ -43,10 +43,10 @@ func resumeCommand(args []string, conn *int, skipTLS *bool) {
 	task, err := download.ReadTask(taskName)
 	utils.FatalCheck(err)
 
-	download.Download(task.Url, task, *conn, *skipTLS)
+	download.Download(task.Url, task, *conn)
 }
 
-func downloadCommand(args []string, conn *int, skipTLS *bool) {
+func downloadCommand(args []string, conn *int) {
 	url := args[0]
 
 	if utils.ExistDir(utils.FolderOf(url)) {
@@ -55,12 +55,11 @@ func downloadCommand(args []string, conn *int, skipTLS *bool) {
 		utils.FatalCheck(err)
 	}
 
-	download.Download(url, nil, *conn, *skipTLS)
+	download.Download(url, nil, *conn)
 }
 
 func main() {
-	conn    := flag.Int("n", runtime.NumCPU(), "number of threads")
-	skipTLS := flag.Bool("skip-tls", true, "skip verify certificate for https")
+	conn := flag.Int("n", runtime.NumCPU(), "number of threads")
 
 	flag.Parse()
 	args := flag.Args()
@@ -72,7 +71,7 @@ func main() {
 
 	switch args[0] {
 	case "tasks": tasksCommand(); break
-	case "resume": resumeCommand(args, conn, skipTLS); break
-	default: downloadCommand(args, conn, skipTLS); break
+	case "resume": resumeCommand(args, conn); break
+	default: downloadCommand(args, conn); break
 	}
 }

@@ -18,7 +18,6 @@ type Task struct {
 
 // Part is a slice of the file downloaded.
 type Part struct {
-	Url       string
 	Path      string
 	RangeFrom int64
 	RangeTo   int64

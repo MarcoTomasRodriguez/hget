@@ -9,13 +9,10 @@ import (
 	"github.com/fatih/color"
 	"gopkg.in/cheggaaa/pb.v1"
 	"io"
-	"net"
 	"net/http"
-	netUrl "net/url"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 )
 
@@ -37,8 +34,6 @@ type HttpDownloader struct {
 	FileLength  int64
 	Parts       []Part
 	Parallelism int64
-	Ips         []string
-	SkipTLS     bool
 	Resumable   bool
 }
 
@@ -64,29 +59,20 @@ func partCalculate(url string, parallelism int64, length int64) []Part {
 
 		filename := fmt.Sprintf("%s.part%d", file, current)
 		path := filepath.Join(folder, filename) // ~/.hget/download-file-name/part-name
-		ret = append(ret, Part{Url: url, Path: path, RangeFrom: from, RangeTo: to})
+		ret = append(ret, Part{Path: path, RangeFrom: from, RangeTo: to})
 	}
 
 	return ret
 }
 
 // NewHttpDownloader initializes the download and returns a downloader.
-func NewHttpDownloader(url string, parallelism int64, skipTLS bool) *HttpDownloader {
-	// Parse the raw-url into a URL structure
-	parsedUrl, err := netUrl.Parse(url)
-	utils.FatalCheck(err)
-
-	// Lookup for the ips
-	ips, err := net.LookupIP(parsedUrl.Host)
-	utils.FatalCheck(err)
-
-	// Convert ipv4 ips to string
-	ipsStr := utils.StringifyIpsV4(ips)
-	logger.Info("Resolve ip: %s\n", strings.Join(ipsStr, " | "))
-
+func NewHttpDownloader(url string, parallelism int64) *HttpDownloader {
 	// Create request
 	req, err := http.NewRequest("GET", url, nil)
 	utils.FatalCheck(err)
+
+	// Log download server host
+	logger.Info("Download server: %s.\n", req.Host)
 
 	// Execute request
 	resp, err := client.Do(req)
@@ -126,8 +112,6 @@ func NewHttpDownloader(url string, parallelism int64, skipTLS bool) *HttpDownloa
 		FileLength:  fileLength,
 		Parts:       partCalculate(url, parallelism, fileLength),
 		Parallelism: parallelism,
-		Ips:         ipsStr,
-		SkipTLS:     skipTLS,
 		Resumable:   resumable,
 	}
 
@@ -205,7 +189,6 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 				select {
 				case <- interruptChan:
 					taskSaveChan <- Part{
-						Url: d.Url,
 						Path: part.Path,
 						RangeFrom: current + part.RangeFrom,
 						RangeTo: part.RangeTo,
