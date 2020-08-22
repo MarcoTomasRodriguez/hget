@@ -127,6 +127,5 @@ func ReadableMemorySize(bytes int64) string {
 // For example, PartName(0, 100) = "part.00", PartName(100, 100) = "part.99" and PartName(101, 101) = "part.100".
 func PartName(part int64, parallelism int64) string {
 	leadingZeros := int(math.Max(math.Log10(float64(parallelism-1))+1, 1))
-	fmt.Println(leadingZeros)
 	return fmt.Sprintf("part.%0"+strconv.Itoa(leadingZeros)+"d", part)
 }
