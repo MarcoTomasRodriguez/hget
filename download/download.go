@@ -1,7 +1,6 @@
 package download
 
 import (
-	"crypto/tls"
 	"fmt"
 	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/MarcoTomasRodriguez/hget/logger"
@@ -21,9 +20,7 @@ import (
 )
 
 var (
-	// In the future, make skipTLS optional to improve the user security.
-	transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-	client    = &http.Client{Transport: transport}
+	client 	  = http.DefaultClient
 	resumable = true
 )
 
@@ -49,7 +46,7 @@ func Download(url string, task *Task, parallelism int) {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	// set up parallel
+	// Set up parallelism
 	var files = make([]string, 0)
 	var parts = make([]Part, 0)
 	var isInterrupted = false
@@ -124,8 +121,6 @@ func Download(url string, task *Task, parallelism int) {
 				} else {
 					outputName = utils.FilenameWithoutHash(url)
 				}
-
-				fmt.Println("Test")
 
 				logger.Info("Joining process initiated.\n")
 
@@ -230,7 +225,7 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 				ranges = fmt.Sprintf("bytes=%d-", part.RangeFrom) // get all
 			}
 
-			// send request
+			// Send request
 			req, err := http.NewRequest("GET", d.Url, nil)
 			if err != nil {
 				errorChan <- err
@@ -241,17 +236,16 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 				req.Header.Add("Range", ranges)
 			}
 
-			// write to file
+			// Write response body to file
 			resp, err := client.Do(req)
+			defer resp.Body.Close()
 			if err != nil {
 				errorChan <- err
 				return
 			}
-			defer resp.Body.Close()
 
-			f, err := os.OpenFile(part.Path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
-
-			defer f.Close()
+			file, err := os.OpenFile(part.Path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+			defer file.Close()
 			if err != nil {
 				errorChan <- err
 				return
@@ -259,9 +253,9 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 
 			var writer io.Writer
 			if config.DisplayProgressBar {
-				writer = io.MultiWriter(f, bar)
+				writer = io.MultiWriter(file, bar)
 			} else {
-				writer = io.MultiWriter(f)
+				writer = io.MultiWriter(file)
 			}
 
 			current := int64(0)
