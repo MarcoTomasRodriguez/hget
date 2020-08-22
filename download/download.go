@@ -1,6 +1,7 @@
 package download
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/MarcoTomasRodriguez/hget/logger"
@@ -20,7 +21,7 @@ import (
 )
 
 var (
-	client 	  = http.DefaultClient
+	client    = http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
 	resumable = true
 )
 
