@@ -21,7 +21,9 @@ import (
 )
 
 var (
-	client    = http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+	client = &http.Client{
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+	}
 	resumable = true
 )
 
