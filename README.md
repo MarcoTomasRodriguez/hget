@@ -8,20 +8,20 @@ In the future, this could be merged back.
 
 ## Install
 
-```
-$ go get -d github.com/MarcoTomasRodriguez/hget
-$ cd $GOPATH/src/github.com/MarcoTomasRodriguez/hget
-$ make install
+```bash
+go get -d github.com/MarcoTomasRodriguez/hget
+cd $GOPATH/src/github.com/MarcoTomasRodriguez/hget
+make install
 ```
 
 This will install the program with the golang default installer.
 
 Alternatively, you can build the binary directly with:
 
-```
-$ go get -d github.com/MarcoTomasRodriguez/hget
-$ cd $GOPATH/src/github.com/MarcoTomasRodriguez/hget
-$ make clean build
+```bash
+go get -d github.com/MarcoTomasRodriguez/hget
+cd $GOPATH/src/github.com/MarcoTomasRodriguez/hget
+make clean build
 ```
 
 ## Usage
@@ -41,5 +41,3 @@ To interrupt any on-downloading process, just ctrl-c or ctrl-d at the middle of 
 ### Resume
 
 ![](https://i.gyazo.com/caa69808f6377421cb2976f323768dc4.gif)
-
-
