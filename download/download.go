@@ -66,8 +66,8 @@ func Download(url string, task *Task, parallelism int) {
 		downloader = NewHTTPDownloader(url, int64(parallelism))
 	} else {
 		downloader = &HTTPDownloader{
-			URL:         task.Url,
-			FileName:    filepath.Base(task.Url),
+			URL:         task.URL,
+			FileName:    filepath.Base(task.URL),
 			Parallelism: int64(len(task.Parts)),
 			Parts:       task.Parts,
 			Resumable:   true,
@@ -101,7 +101,7 @@ func Download(url string, task *Task, parallelism int) {
 			if isInterrupted {
 				if downloader.Resumable {
 					logger.Info("Interrupted. Saving task... \n")
-					s := &Task{Url: url, Parts: parts}
+					s := &Task{URL: url, Parts: parts}
 					err := s.SaveTask()
 					if err != nil {
 						logger.Info("%v\n", err)
