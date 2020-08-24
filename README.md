@@ -26,7 +26,7 @@ make clean build
 
 ## Usage
 
-```
+```bash
 hget [-n parallel] [Url] // Downloads a file using n threads. The default is the number of cores.
 hget tasks // Gets all the interrupted tasks.
 hget resume [TaskName | URL] // Resumes a task given a TaskName or URL.
