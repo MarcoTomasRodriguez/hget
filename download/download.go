@@ -110,37 +110,37 @@ func Download(url string, task *Task, parallelism int) {
 				}
 				logger.Warn("Interrupted. Task was not saved because it is not resumable.\n")
 				return
-			} else {
-				var outputName string
-
-				downloadTime := time.Since(downloadStart)
-				downloadSize := utils.ReadableMemorySize(writtenBytes)
-				downloadSpeed := utils.ReadableMemorySize(writtenBytes/int64(math.Max(downloadTime.Seconds(), 1))) + "/s"
-				logger.Info("Downloaded %s in %s at an average speed of %s.\n", downloadSize, downloadTime, downloadSpeed)
-
-				if config.SaveWithHash {
-					outputName = utils.FilenameWithHash(url)
-				} else {
-					outputName = utils.FilenameWithoutHash(url)
-				}
-
-				logger.Info("Joining process initiated.\n")
-
-				err = JoinParts(files, outputName)
-				utils.FatalCheck(err)
-
-				logger.Info("Joining process finished.\n")
-				logger.Info("Removing parts.\n")
-
-				err = os.RemoveAll(utils.FolderOf(url))
-				utils.FatalCheck(err)
-
-				outputPath, err := filepath.Abs(outputName)
-				utils.FatalCheck(err)
-				logger.Info("File saved in %s.\n", outputPath)
-
-				return
 			}
+
+			// Join parts and then remove them
+			outputName := ""
+			downloadTime := time.Since(downloadStart)
+			downloadSize := utils.ReadableMemorySize(writtenBytes)
+			downloadSpeed := utils.ReadableMemorySize(writtenBytes/int64(math.Max(downloadTime.Seconds(), 1))) + "/s"
+			logger.Info("Downloaded %s in %s at an average speed of %s.\n", downloadSize, downloadTime, downloadSpeed)
+
+			if config.SaveWithHash {
+				outputName = utils.FilenameWithHash(url)
+			} else {
+				outputName = utils.FilenameWithoutHash(url)
+			}
+
+			logger.Info("Joining process initiated.\n")
+
+			err = JoinParts(files, outputName)
+			utils.FatalCheck(err)
+
+			logger.Info("Joining process finished.\n")
+			logger.Info("Removing parts.\n")
+
+			err = os.RemoveAll(utils.FolderOf(url))
+			utils.FatalCheck(err)
+
+			outputPath, err := filepath.Abs(outputName)
+			utils.FatalCheck(err)
+			logger.Info("File saved in %s.\n", outputPath)
+
+			return
 		}
 	}
 }
