@@ -1,5 +1,7 @@
 # hget
 
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/b9f13f0d5ce04d629a36f9da50da372d)](https://www.codacy.com/manual/MarcoTomasRodriguez/hget?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=MarcoTomasRodriguez/hget&amp;utm_campaign=Badge_Grade)
+
 This is a mantained version of [huydx/hget](https://github.com/huydx/hget).
 
 Unfortunately, the original author stopped giving support to this project; since the idea is cool, I decided to continue it.
