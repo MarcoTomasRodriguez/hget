@@ -7,6 +7,7 @@ import (
 	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/MarcoTomasRodriguez/hget/logger"
 	"math"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -109,6 +110,33 @@ func IsURL(URL string) bool {
 	return err == nil
 }
 
+// ResolveURL resolves the url adding the http scheme going for https-first if needed.
+func ResolveURL(URL string) (string, error) {
+	// Check if the URL is valid
+	if !IsURL(URL) {
+		return "", errors.New("the URL provided is not valid")
+	}
+
+	// Check if the scheme is provided
+	if strings.HasPrefix(URL, "https://") || strings.HasPrefix(URL, "http://") {
+		return URL, nil
+	}
+
+	// Resolve https
+	httpsURL := "https://" + URL
+	if res, _ := http.Get(httpsURL); res != nil {
+		return httpsURL, nil
+	}
+
+	// Resolve http
+	httpURL := "http://" + URL
+	if res, _ := http.Get(httpURL); res != nil {
+		return httpURL, nil
+	}
+
+	return "", errors.New("cannot resolve url to HTTPS or HTTP")
+}
+
 // ReadableMemorySize returns a prettier form of some memory size.
 func ReadableMemorySize(bytes int64) string {
 	b := float64(bytes)
@@ -123,9 +151,9 @@ func ReadableMemorySize(bytes int64) string {
 	}
 }
 
-// PartName creates the part name with the part number formatted with as many leading zeros as needed.
-// For example, PartName(0, 100) = "part.00", PartName(100, 100) = "part.99" and PartName(101, 101) = "part.100".
-func PartName(part int64, parallelism int64) string {
+// MakePartName creates the part name with the part number formatted with as many leading zeros as needed.
+// For example, MakePartName(0, 100) = "part.00", MakePartName(100, 100) = "part.99" and MakePartName(101, 101) = "part.100".
+func MakePartName(part int64, parallelism int64) string {
 	leadingZeros := int(math.Max(math.Log10(float64(parallelism-1))+1, 1))
 	return fmt.Sprintf("part.%0"+strconv.Itoa(leadingZeros)+"d", part)
 }

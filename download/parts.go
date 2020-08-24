@@ -76,7 +76,7 @@ func CalculateParts(url string, parallelism int64, length int64) []Part {
 		}
 
 		// Padding 0 before path name as filename will be sorted as string
-		path := filepath.Join(folder, utils.PartName(current, parallelism))
+		path := filepath.Join(folder, utils.MakePartName(current, parallelism))
 
 		ret[current] = Part{Path: path, RangeFrom: from, RangeTo: to}
 	}

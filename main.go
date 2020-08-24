@@ -30,16 +30,16 @@ func tasksCommand() {
 
 func resumeCommand(args []string, conn int) {
 	if len(args) < 2 {
-		logger.Error("TaskName or URL is required\n")
+		logger.Error("TaskName or URL is required.\n")
 		printUsage()
 		os.Exit(1)
 	}
 
-	var taskName string
-	if utils.IsURL(args[1]) {
-		taskName = utils.FilenameWithHash(args[1])
-	} else {
-		taskName = args[1]
+	taskName := args[1]
+	if utils.IsURL(taskName) {
+		URL, err := utils.ResolveURL(taskName)
+		utils.FatalCheck(err)
+		taskName = utils.FilenameWithHash(URL)
 	}
 
 	task, err := download.ReadTask(taskName)
@@ -49,15 +49,16 @@ func resumeCommand(args []string, conn int) {
 }
 
 func downloadCommand(args []string, conn int) {
-	url := args[0]
+	URL, err := utils.ResolveURL(args[0])
+	utils.FatalCheck(err)
 
-	if utils.ExistDir(utils.FolderOf(url)) {
-		logger.Warn("Downloading task already exist, remove first \n")
-		err := os.RemoveAll(utils.FolderOf(url))
+	if utils.ExistDir(utils.FolderOf(URL)) {
+		logger.Warn("Downloading task already exists. Deleting it first.\n")
+		err := os.RemoveAll(utils.FolderOf(URL))
 		utils.FatalCheck(err)
 	}
 
-	download.Download(url, nil, conn)
+	download.Download(URL, nil, conn)
 }
 
 func main() {
@@ -66,7 +67,7 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 	if len(args) < 1 {
-		logger.Error("URL is required\n")
+		logger.Error("URL is required.\n")
 		printUsage()
 		os.Exit(1)
 	}

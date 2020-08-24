@@ -70,6 +70,28 @@ func TestIsUrl(t *testing.T) {
 	assert.False(t, IsURL("https://not a url.com"))
 }
 
+func TestResolveURL(t *testing.T) {
+	URL, err := ResolveURL("https://not a url")
+	assert.Error(t, err)
+	assert.Empty(t, URL)
+
+	URL, err = ResolveURL("random-url-asijafdswfnerdfs")
+	assert.Error(t, err)
+	assert.Empty(t, URL)
+
+	URL, err = ResolveURL("google.com")
+	assert.NoError(t, err)
+	assert.Equal(t, "https://google.com", URL)
+
+	URL, err = ResolveURL("https://google.com")
+	assert.NoError(t, err)
+	assert.Equal(t, "https://google.com", URL)
+
+	URL, err = ResolveURL("http://google.com")
+	assert.NoError(t, err)
+	assert.Equal(t, "http://google.com", URL)
+}
+
 func TestReadableMemorySize(t *testing.T) {
 	assert.Equal(t, "0.0 KB", ReadableMemorySize(Byte*10))
 	assert.Equal(t, "0.5 KB", ReadableMemorySize(KiloByte*0.5))
@@ -82,12 +104,12 @@ func TestReadableMemorySize(t *testing.T) {
 }
 
 func TestPartName(t *testing.T) {
-	assert.Equal(t, "part.0", PartName(0, 1))
-	assert.Equal(t, "part.9", PartName(9, 10))
-	assert.Equal(t, "part.00", PartName(0, 100))
-	assert.Equal(t, "part.00", PartName(0, 100))
-	assert.Equal(t, "part.99", PartName(99, 100))
-	assert.Equal(t, "part.100", PartName(100, 101))
-	assert.Equal(t, "part.500", PartName(500, 1000))
-	assert.Equal(t, "part.12034", PartName(12034, 14623))
+	assert.Equal(t, "part.0", MakePartName(0, 1))
+	assert.Equal(t, "part.9", MakePartName(9, 10))
+	assert.Equal(t, "part.00", MakePartName(0, 100))
+	assert.Equal(t, "part.00", MakePartName(0, 100))
+	assert.Equal(t, "part.99", MakePartName(99, 100))
+	assert.Equal(t, "part.100", MakePartName(100, 101))
+	assert.Equal(t, "part.500", MakePartName(500, 1000))
+	assert.Equal(t, "part.12034", MakePartName(12034, 14623))
 }
