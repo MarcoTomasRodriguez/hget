@@ -36,7 +36,7 @@ func resumeCommand(args []string, conn int) {
 	}
 
 	var taskName string
-	if utils.IsUrl(args[1]) {
+	if utils.IsURL(args[1]) {
 		taskName = utils.FilenameWithHash(args[1])
 	} else {
 		taskName = args[1]

@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	FilenameLengthLimit = 255
+	filenameLengthLimit = 255
 	Byte                = 1
 	KiloByte            = 1024 * Byte
 	MegaByte            = 1024 * KiloByte
@@ -51,7 +51,7 @@ func HashOf(str string) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(str)))
 }
 
-// RemoveHashFromFilename returns the basename + the hash of the url.
+// FilenameWithHash returns the hash-basename from the url.
 func FilenameWithHash(url string) string {
 	base := filepath.Base(url)
 	hash := HashOf(url)[:config.UseHashLength]
@@ -60,9 +60,9 @@ func FilenameWithHash(url string) string {
 	}
 
 	filename := hash + "-" + base
-	if len(filename) > FilenameLengthLimit {
+	if len(filename) > filenameLengthLimit {
 		logger.Panic(fmt.Errorf("the filename length should never exceed the limit of %d",
-			FilenameLengthLimit-len(hash)+1))
+			filenameLengthLimit-len(hash)+1))
 	}
 
 	return filename
@@ -75,8 +75,8 @@ func FilenameWithoutHash(url string) string {
 		logger.Panic(errors.New("there is no basename for the url"))
 	}
 
-	if len(filename) > FilenameLengthLimit {
-		logger.Panic(fmt.Errorf("the filename length should never exceed the limit of %d", FilenameLengthLimit))
+	if len(filename) > filenameLengthLimit {
+		logger.Panic(fmt.Errorf("the filename length should never exceed the limit of %d", filenameLengthLimit))
 	}
 
 	return filename
@@ -96,15 +96,15 @@ func FolderOf(url string) string {
 	FatalCheck(err)
 
 	if strings.Contains(relative, "..") {
-		FatalCheck(errors.New("you may be a victim of directory traversal path attack\n"))
+		FatalCheck(errors.New("you might be a victim of directory traversal path attack"))
 		return "" // redundant but needed for the compiler to work
-	} else {
-		return fullQualifyPath
 	}
+
+	return fullQualifyPath
 }
 
-// IsUrl checks whether a url is valid or not.
-func IsUrl(URL string) bool {
+// IsURL checks whether a url is valid or not.
+func IsURL(URL string) bool {
 	_, err := url.Parse(URL)
 	return err == nil
 }
