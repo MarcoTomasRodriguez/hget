@@ -28,7 +28,7 @@ func tasksCommand() {
 	}
 }
 
-func resumeCommand(args []string, conn *int) {
+func resumeCommand(args []string, conn int) {
 	if len(args) < 2 {
 		logger.Error("TaskName or URL is required\n")
 		printUsage()
@@ -45,10 +45,10 @@ func resumeCommand(args []string, conn *int) {
 	task, err := download.ReadTask(taskName)
 	utils.FatalCheck(err)
 
-	download.Download(task.Url, task, *conn)
+	download.Download(task.Url, task, conn)
 }
 
-func downloadCommand(args []string, conn *int) {
+func downloadCommand(args []string, conn int) {
 	url := args[0]
 
 	if utils.ExistDir(utils.FolderOf(url)) {
@@ -57,11 +57,11 @@ func downloadCommand(args []string, conn *int) {
 		utils.FatalCheck(err)
 	}
 
-	download.Download(url, nil, *conn)
+	download.Download(url, nil, conn)
 }
 
 func main() {
-	conn := flag.Int("n", runtime.NumCPU(), "number of threads")
+	conn := *flag.Int("n", runtime.NumCPU(), "number of threads")
 
 	flag.Parse()
 	args := flag.Args()
