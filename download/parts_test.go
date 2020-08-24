@@ -35,11 +35,11 @@ func TestCalculateParts(t *testing.T) {
 	assert.NoError(t, RemoveAllTasks())
 	assert.Equal(t, []Part{}, CalculateParts("url", 0, 150))
 	assert.Equal(t, []Part{
-		{Path: filepath.Join(utils.FolderOf("my-url"), utils.PartName(0, 3)), RangeFrom: 0, RangeTo: 150},
+		{Path: filepath.Join(utils.FolderOf("my-url"), utils.MakePartName(0, 3)), RangeFrom: 0, RangeTo: 150},
 	}, CalculateParts("my-url", 1, 150))
 	assert.Equal(t, []Part{
-		{Path: filepath.Join(utils.FolderOf("google.com"), utils.PartName(0, 3)), RangeFrom: 0, RangeTo: 49},
-		{Path: filepath.Join(utils.FolderOf("google.com"), utils.PartName(1, 3)), RangeFrom: 50, RangeTo: 99},
-		{Path: filepath.Join(utils.FolderOf("google.com"), utils.PartName(2, 3)), RangeFrom: 100, RangeTo: 150},
+		{Path: filepath.Join(utils.FolderOf("google.com"), utils.MakePartName(0, 3)), RangeFrom: 0, RangeTo: 49},
+		{Path: filepath.Join(utils.FolderOf("google.com"), utils.MakePartName(1, 3)), RangeFrom: 50, RangeTo: 99},
+		{Path: filepath.Join(utils.FolderOf("google.com"), utils.MakePartName(2, 3)), RangeFrom: 100, RangeTo: 150},
 	}, CalculateParts("google.com", 3, 150))
 }

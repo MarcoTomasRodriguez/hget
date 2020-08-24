@@ -32,4 +32,4 @@ var CopyNBytes = int64(250)
 
 // LogLevel restricts the logs to what the user wants to know using a numeric system.
 // 0 means no logs, 1 only important logs and 2 all logs.
-var LogLevel = uint8(1)
+var LogLevel = uint8(2)
