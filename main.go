@@ -36,7 +36,7 @@ func resumeCommand(args []string, conn int) {
 	}
 
 	var taskName string
-	if utils.IsUrl(args[1]) {
+	if utils.IsURL(args[1]) {
 		taskName = utils.FilenameWithHash(args[1])
 	} else {
 		taskName = args[1]
@@ -45,7 +45,7 @@ func resumeCommand(args []string, conn int) {
 	task, err := download.ReadTask(taskName)
 	utils.FatalCheck(err)
 
-	download.Download(task.Url, task, conn)
+	download.Download(task.URL, task, conn)
 }
 
 func downloadCommand(args []string, conn int) {

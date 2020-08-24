@@ -32,9 +32,9 @@ const (
 	contentLengthHeader = "Content-Length"
 )
 
-// HttpDownloader represents a download with his information.
-type HttpDownloader struct {
-	Url         string
+// HTTPDownloader represents a download with his information.
+type HTTPDownloader struct {
+	URL         string
 	FileName    string
 	FileLength  int64
 	Parts       []Part
@@ -61,13 +61,13 @@ func Download(url string, task *Task, parallelism int) {
 	interruptChan := make(chan bool, parallelism)
 	writtenBytesChan := make(chan int64, parallelism)
 
-	var downloader *HttpDownloader
+	var downloader *HTTPDownloader
 	if task == nil {
-		downloader = NewHttpDownloader(url, int64(parallelism))
+		downloader = NewHTTPDownloader(url, int64(parallelism))
 	} else {
-		downloader = &HttpDownloader{
-			Url:         task.Url,
-			FileName:    filepath.Base(task.Url),
+		downloader = &HTTPDownloader{
+			URL:         task.URL,
+			FileName:    filepath.Base(task.URL),
 			Parallelism: int64(len(task.Parts)),
 			Parts:       task.Parts,
 			Resumable:   true,
@@ -100,54 +100,53 @@ func Download(url string, task *Task, parallelism int) {
 		case <-doneChan:
 			if isInterrupted {
 				if downloader.Resumable {
-					logger.Info("Interrupted, saving task... \n")
-					s := &Task{Url: url, Parts: parts}
+					logger.Info("Interrupted. Saving task... \n")
+					s := &Task{URL: url, Parts: parts}
 					err := s.SaveTask()
 					if err != nil {
 						logger.Info("%v\n", err)
 					}
 					return
-				} else {
-					logger.Warn("Interrupted, but downloading url is not resumable, silently die\n")
-					return
 				}
-			} else {
-				var outputName string
-
-				downloadTime := time.Since(downloadStart)
-				downloadSize := utils.ReadableMemorySize(writtenBytes)
-				downloadSpeed := utils.ReadableMemorySize(writtenBytes/int64(math.Max(downloadTime.Seconds(), 1))) + "/s"
-				logger.Info("Downloaded %s in %s at an average speed of %s.\n", downloadSize, downloadTime, downloadSpeed)
-
-				if config.SaveWithHash {
-					outputName = utils.FilenameWithHash(url)
-				} else {
-					outputName = utils.FilenameWithoutHash(url)
-				}
-
-				logger.Info("Joining process initiated.\n")
-
-				err = JoinParts(files, outputName)
-				utils.FatalCheck(err)
-
-				logger.Info("Joining process finished.\n")
-				logger.Info("Removing parts.\n")
-
-				err = os.RemoveAll(utils.FolderOf(url))
-				utils.FatalCheck(err)
-
-				outputPath, err := filepath.Abs(outputName)
-				utils.FatalCheck(err)
-				logger.Info("File saved in %s.\n", outputPath)
-
+				logger.Warn("Interrupted. Task was not saved because it is not resumable.\n")
 				return
 			}
+
+			// Join parts and then remove them
+			outputName := ""
+			downloadTime := time.Since(downloadStart)
+			downloadSize := utils.ReadableMemorySize(writtenBytes)
+			downloadSpeed := utils.ReadableMemorySize(writtenBytes/int64(math.Max(downloadTime.Seconds(), 1))) + "/s"
+			logger.Info("Downloaded %s in %s at an average speed of %s.\n", downloadSize, downloadTime, downloadSpeed)
+
+			if config.SaveWithHash {
+				outputName = utils.FilenameWithHash(url)
+			} else {
+				outputName = utils.FilenameWithoutHash(url)
+			}
+
+			logger.Info("Joining process initiated.\n")
+
+			err = JoinParts(files, outputName)
+			utils.FatalCheck(err)
+
+			logger.Info("Joining process finished.\n")
+			logger.Info("Removing parts.\n")
+
+			err = os.RemoveAll(utils.FolderOf(url))
+			utils.FatalCheck(err)
+
+			outputPath, err := filepath.Abs(outputName)
+			utils.FatalCheck(err)
+			logger.Info("File saved in %s.\n", outputPath)
+
+			return
 		}
 	}
 }
 
-// NewHttpDownloader initializes the download and returns a downloader.
-func NewHttpDownloader(url string, parallelism int64) *HttpDownloader {
+// NewHTTPDownloader initializes the download and returns a downloader.
+func NewHTTPDownloader(url string, parallelism int64) *HTTPDownloader {
 	// Create request
 	req, err := http.NewRequest("GET", url, nil)
 	utils.FatalCheck(err)
@@ -186,9 +185,9 @@ func NewHttpDownloader(url string, parallelism int64) *HttpDownloader {
 		logger.Info("Download size: not specified.\n")
 	}
 
-	// Return HttpDownloader struct
-	httpDownloader := &HttpDownloader{
-		Url:         url,
+	// Return HTTPDownloader struct
+	httpDownloader := &HTTPDownloader{
+		URL:         url,
 		FileName:    filepath.Base(url),
 		FileLength:  fileLength,
 		Parts:       CalculateParts(url, parallelism, fileLength),
@@ -200,7 +199,7 @@ func NewHttpDownloader(url string, parallelism int64) *HttpDownloader {
 }
 
 // Do downloads from the downloader.
-func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan chan error, interruptChan chan bool,
+func (d *HTTPDownloader) Do(doneChan chan bool, fileChan chan string, errorChan chan error, interruptChan chan bool,
 	taskSaveChan chan Part, writtenBytesChan chan int64) {
 	var ws sync.WaitGroup
 	var barPool *pb.Pool
@@ -218,7 +217,7 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 		}
 
 		ws.Add(1)
-		go func(d *HttpDownloader, part Part, bar *pb.ProgressBar) {
+		go func(d *HTTPDownloader, part Part, bar *pb.ProgressBar) {
 			defer ws.Done()
 			var ranges string
 
@@ -229,7 +228,7 @@ func (d *HttpDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 			}
 
 			// Send request
-			req, err := http.NewRequest("GET", d.Url, nil)
+			req, err := http.NewRequest("GET", d.URL, nil)
 			if err != nil {
 				errorChan <- err
 				return

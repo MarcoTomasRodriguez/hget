@@ -14,7 +14,7 @@ import (
 
 // Task represents a download.
 type Task struct {
-	Url   string
+	URL   string
 	Parts []Part
 }
 
@@ -30,7 +30,7 @@ type Part struct {
 func (task *Task) SaveTask() error {
 	// make temp folder
 	// only working in unix with env HOME
-	folder := utils.FolderOf(task.Url)
+	folder := utils.FolderOf(task.URL)
 	logger.Info("Saving current download data in %s\n", folder)
 	if err := utils.MkdirIfNotExist(folder); err != nil {
 		return err
@@ -90,9 +90,8 @@ func GetAllTasks() ([]string, error) {
 func RemoveTask(taskName string) error {
 	if !strings.Contains(taskName, "..") {
 		return os.RemoveAll(filepath.Join(config.Home, config.ProgramFolder, taskName))
-	} else {
-		return fmt.Errorf("illegal task name")
 	}
+	return fmt.Errorf("illegal task name")
 }
 
 // RemoveAllTasks removes all the tasks.

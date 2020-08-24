@@ -64,10 +64,10 @@ func TestFolderOf(t *testing.T) {
 }
 
 func TestIsUrl(t *testing.T) {
-	assert.True(t, IsUrl("http://gooGle.com.ar"))
-	assert.True(t, IsUrl("https://google.Com"))
-	assert.True(t, IsUrl("GoOgLe.c0m.ar"))
-	assert.False(t, IsUrl("https://not a url.com"))
+	assert.True(t, IsURL("http://gooGle.com.ar"))
+	assert.True(t, IsURL("https://google.Com"))
+	assert.True(t, IsURL("GoOgLe.c0m.ar"))
+	assert.False(t, IsURL("https://not a url.com"))
 }
 
 func TestReadableMemorySize(t *testing.T) {
