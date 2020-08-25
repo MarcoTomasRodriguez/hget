@@ -33,3 +33,7 @@ var CopyNBytes = int64(250)
 // LogLevel restricts the logs to what the user wants to know using a numeric system.
 // 0 means no logs, 1 only important logs and 2 all logs.
 var LogLevel = uint8(2)
+
+// DownloadFolder defines in which directory the downloaded file will be moved to.
+// If it is empty, then the download folder will be the terminal cwd.
+var DownloadFolder = ""

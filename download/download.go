@@ -22,7 +22,7 @@ import (
 
 var (
 	client = &http.Client{
-		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
 	}
 	resumable = true
 )
@@ -44,8 +44,6 @@ type HTTPDownloader struct {
 
 // Download downloads the file from the url considering the state of the task using parallelism.
 func Download(url string, task *Task, parallelism int) {
-	var err error
-
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
@@ -84,7 +82,6 @@ func Download(url string, task *Task, parallelism int) {
 	for {
 		select {
 		case <-signalChan:
-			// send par number of interrupt for each routine
 			isInterrupted = true
 			for i := 0; i < parallelism; i++ {
 				interruptChan <- true
@@ -127,7 +124,10 @@ func Download(url string, task *Task, parallelism int) {
 
 			logger.Info("Joining process initiated.\n")
 
-			err = JoinParts(files, outputName)
+			outputPath, err := filepath.Abs(filepath.Join(config.DownloadFolder, outputName))
+			utils.FatalCheck(err)
+
+			err = JoinParts(files, outputPath)
 			utils.FatalCheck(err)
 
 			logger.Info("Joining process finished.\n")
@@ -136,8 +136,6 @@ func Download(url string, task *Task, parallelism int) {
 			err = os.RemoveAll(utils.FolderOf(url))
 			utils.FatalCheck(err)
 
-			outputPath, err := filepath.Abs(outputName)
-			utils.FatalCheck(err)
 			logger.Info("File saved in %s.\n", outputPath)
 
 			return

@@ -12,10 +12,11 @@ import (
 
 func printUsage() {
 	logger.Info(`Usage:
-hget [URL] [-n CPUs] [-skip-tls true]
-hget tasks
-hget resume [TaskName | URL]
+| hget [-n Threads] [URL]
+| hget tasks
+| hget resume [TaskName | URL]
 `)
+	os.Exit(2)
 }
 
 func tasksCommand() {
@@ -62,10 +63,18 @@ func downloadCommand(args []string, conn int) {
 }
 
 func main() {
-	conn := *flag.Int("n", runtime.NumCPU(), "number of threads")
+	// Flags
+	parallelismPtr := flag.Int("n", runtime.NumCPU(), "number of threads")
 
+	// Help
+	flag.Usage = printUsage
+
+	// Parse
 	flag.Parse()
+
+	// Args
 	args := flag.Args()
+
 	if len(args) < 1 {
 		logger.Error("URL is required.\n")
 		printUsage()
@@ -77,10 +86,10 @@ func main() {
 		tasksCommand()
 		break
 	case "resume":
-		resumeCommand(args, conn)
+		resumeCommand(args, *parallelismPtr)
 		break
 	default:
-		downloadCommand(args, conn)
+		downloadCommand(args, *parallelismPtr)
 		break
 	}
 }
