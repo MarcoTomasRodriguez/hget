@@ -6,14 +6,25 @@
 
 This is a mantained version of [huydx/hget](https://github.com/huydx/hget).
 
-Unfortunately, the original author stopped giving support to this project; since the idea is cool, I decided to continue it.
+hget allows you to download at the maximum speed posible using download threads and to stop and resume tasks.
 
-In the future, this could be merged back.
+## Why should I use hget?
+
+hget works especially well when the bottleneck is on the server, rather than the computer.
+The parallelism allows the computer to download at his maximum possible speed (but it has its overheads).
+
+If there is no bottleneck in the server, it is probably better to use 1 download thread.
+Else you should set the number of download threads as low as possible to achieve the maximum speed.
+
+For example, if the computer (and the internet connection) allows you to download at 5MB/s and the server only gives you 1MB/s,
+then it would be a great option to use ~5 download threads.
+But if the computer allows you to download at 5MB/s and the server provides you >5MB/s, then there's no need to use more than 1
+download thread.
 
 ## Install
 
 ```bash
-go get -d github.com/MarcoTomasRodriguez/hget
+go get -u github.com/MarcoTomasRodriguez/hget
 cd $GOPATH/src/github.com/MarcoTomasRodriguez/hget
 make install
 ```
@@ -23,25 +34,29 @@ This will install the program with the golang default installer.
 Alternatively, you can build the binary directly with:
 
 ```bash
-go get -d github.com/MarcoTomasRodriguez/hget
+go get -u github.com/MarcoTomasRodriguez/hget
 cd $GOPATH/src/github.com/MarcoTomasRodriguez/hget
 make clean build
 ```
 
 ## Usage
 
-```bash
-hget [-n parallel] [Url] // Downloads a file using n threads. The default is the number of cores.
-hget tasks // Gets all the interrupted tasks.
-hget resume [TaskName | URL] // Resumes a task given a TaskName or URL.
-```
-
-To interrupt any on-downloading process, just ctrl-c or ctrl-d at the middle of the download, hget will safely save your data and you will be able to resume later.
-
 ### Download
 
-![](https://i.gyazo.com/89009c7f02fea8cb4cbf07ee5b75da0a.gif)
+```bash
+hget [-n parallelism] [URL]
+```
+
+`-n`: Download threads (Default: CPUs).
 
 ### Resume
 
-![](https://i.gyazo.com/caa69808f6377421cb2976f323768dc4.gif)
+```bash
+hget resume [Task | URL]
+```
+
+### List tasks
+
+```bash
+hget tasks
+```
