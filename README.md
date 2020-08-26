@@ -60,3 +60,33 @@ hget resume [Task | URL]
 ```bash
 hget tasks
 ```
+
+## Configuration
+
+The configuration file is located at $HOME/.hget/config.toml
+
+### Default
+
+```toml
+# enables/disables the display of the progress bar.
+display_progress_bar = true
+
+# sets the length of the hash used to prevent collisions.
+# Constrains: 0 < x <= 32
+use_hash_length = 16
+
+# enables/disables the collision protection using a hash while moving the file from inside the program to outside.
+save_with_hash = true
+
+# sets the bytes to copy in a row from the response body. 
+# Constrains: 0 < x
+copy_n_bytes = 250
+
+# restricts the logs to what the user wants to get: 0 means no logs, 1 only important logs and 2 all logs.
+# Constrains: 0 <= x <= 2
+log_level = 2
+
+# defines in which directory the downloaded file will be moved to.
+# if it is empty, then the download folder will be the terminal cwd.
+download_folder = ""
+```
