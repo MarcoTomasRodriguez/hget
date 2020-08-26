@@ -65,7 +65,7 @@ var DefaultConfig = &Configuration{
 // Config is the shared configuration instance.
 var Config = DefaultConfig
 
-// Loads the configuration from a toml file merging it with the default config.
+// LoadConfig loads the configuration from a toml file merging it with the default config.
 func LoadConfig(configFilepath string) (*Configuration, error) {
 	config := DefaultConfig
 	loadedConfig := &Configuration{}
