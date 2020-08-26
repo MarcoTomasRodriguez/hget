@@ -8,6 +8,7 @@ import (
 	"os"
 )
 
+// Configuration is the shared object which is used to persist information both inside the program and outside of it.
 type Configuration struct {
 	// Home is the $HOME of the system.
 	Home string `toml:"-"`
@@ -46,6 +47,8 @@ type Configuration struct {
 	DownloadFolder string `toml:"download_folder"`
 }
 
+// DefaultConfig is the default configuration instance.
+// The Config instance is based on these defaults.
 var DefaultConfig = &Configuration{
 	Home:               os.Getenv("HOME"),
 	ProgramFolder:      ".hget/",
@@ -59,9 +62,10 @@ var DefaultConfig = &Configuration{
 	DownloadFolder:     "",
 }
 
+// Config is the shared configuration instance.
 var Config = DefaultConfig
 
-// filepath.Join(Internal.Home, Internal.ProgramFolder, Internal.ConfigFilename)
+// Loads the configuration from a toml file merging it with the default config.
 func LoadConfig(configFilepath string) (*Configuration, error) {
 	config := DefaultConfig
 	loadedConfig := &Configuration{}
