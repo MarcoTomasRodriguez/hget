@@ -6,7 +6,7 @@
 
 This is a mantained version of [huydx/hget](https://github.com/huydx/hget).
 
-hget allows you to download at the maximum speed posible using download threads and to stop and resume tasks.
+hget allows you to download at the maximum speed possible using download threads and to stop and resume tasks.
 
 ## Why should I use hget?
 
