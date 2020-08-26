@@ -3,10 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/MarcoTomasRodriguez/hget/download"
 	"github.com/MarcoTomasRodriguez/hget/logger"
 	"github.com/MarcoTomasRodriguez/hget/utils"
 	"os"
+	"path/filepath"
 	"runtime"
 )
 
@@ -81,6 +83,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Load config
+	cfg, err := config.LoadConfig(filepath.Join(config.Config.Home, config.Config.ProgramFolder, config.Config.ConfigFilename))
+	if err != nil {
+		logger.Error("%v", err)
+	}
+	config.Config = cfg
+
+	// Execute command
 	switch args[0] {
 	case "tasks":
 		tasksCommand()

@@ -116,7 +116,7 @@ func Download(url string, task *Task, parallelism int) {
 			downloadSpeed := utils.ReadableMemorySize(writtenBytes/int64(math.Max(downloadTime.Seconds(), 1))) + "/s"
 			logger.Info("Downloaded %s in %s at an average speed of %s.\n", downloadSize, downloadTime, downloadSpeed)
 
-			if config.SaveWithHash {
+			if config.Config.SaveWithHash {
 				outputName = utils.FilenameWithHash(url)
 			} else {
 				outputName = utils.FilenameWithoutHash(url)
@@ -124,7 +124,7 @@ func Download(url string, task *Task, parallelism int) {
 
 			logger.Info("Joining process initiated.\n")
 
-			outputPath, err := filepath.Abs(filepath.Join(config.DownloadFolder, outputName))
+			outputPath, err := filepath.Abs(filepath.Join(config.Config.DownloadFolder, outputName))
 			utils.FatalCheck(err)
 
 			err = JoinParts(files, outputPath)
@@ -169,7 +169,7 @@ func NewHTTPDownloader(url string, parallelism int64) *HTTPDownloader {
 		contentLength = "0"
 		parallelism = 1
 		resumable = false
-		config.DisplayProgressBar = false
+		config.Config.DisplayProgressBar = false
 	}
 
 	// Get file length
@@ -208,7 +208,7 @@ func (d *HTTPDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 	for i, p := range d.Parts {
 		var bar *pb.ProgressBar
 
-		if config.DisplayProgressBar {
+		if config.Config.DisplayProgressBar {
 			bar = pb.New64(p.RangeTo - p.RangeFrom).SetUnits(pb.U_BYTES).Prefix(color.YellowString(
 				fmt.Sprintf("%s-%d", d.FileName, i)))
 			bars = append(bars, bar)
@@ -252,7 +252,7 @@ func (d *HTTPDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 			}
 
 			var writer io.Writer
-			if config.DisplayProgressBar {
+			if config.Config.DisplayProgressBar {
 				writer = io.MultiWriter(file, bar)
 			} else {
 				writer = io.MultiWriter(file)
@@ -269,14 +269,14 @@ func (d *HTTPDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 					}
 					return
 				default:
-					written, err := io.CopyN(writer, resp.Body, config.CopyNBytes)
+					written, err := io.CopyN(writer, resp.Body, config.Config.CopyNBytes)
 					writtenBytesChan <- written
 					current += written
 					if err != nil {
 						if err != io.EOF {
 							errorChan <- err
 						}
-						if config.DisplayProgressBar {
+						if config.Config.DisplayProgressBar {
 							bar.Finish()
 						}
 						fileChan <- part.Path
@@ -287,7 +287,7 @@ func (d *HTTPDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 		}(d, p, bar)
 	}
 
-	if config.DisplayProgressBar {
+	if config.Config.DisplayProgressBar {
 		barPool, err = pb.StartPool(bars...)
 		if err != nil {
 			errorChan <- err
@@ -297,7 +297,7 @@ func (d *HTTPDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 
 	ws.Wait()
 
-	if config.DisplayProgressBar {
+	if config.Config.DisplayProgressBar {
 		if err = barPool.Stop(); err != nil {
 			errorChan <- err
 			return

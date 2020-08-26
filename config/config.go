@@ -1,39 +1,95 @@
 package config
 
 import (
+	"fmt"
 	"github.com/mattn/go-isatty"
+	"github.com/pelletier/go-toml"
+	"io/ioutil"
 	"os"
 )
 
-// Home is the $HOME of the system.
-var Home = os.Getenv("HOME")
+type Configuration struct {
+	// Home is the $HOME of the system.
+	Home string `toml:"-"`
 
-// ProgramFolder is the folder in which the program will store his information
-// about the ongoing downloads. This path is relative to $HOME.
-var ProgramFolder = ".hget/"
+	// ProgramFolder is the folder in which the program will store his information
+	// about the ongoing downloads. This path is relative to $HOME.
+	ProgramFolder string `toml:"-"`
 
-// TaskFilename represents the state of a download. This file will be located
-// in $HOME/ProgramFolder/Download
-var TaskFilename = "task.json"
+	// ConfigFilename is the
+	ConfigFilename string `toml:"-"`
 
-// DisplayProgressBar enables/disables the display of the progress bar.
-var DisplayProgressBar = isatty.IsTerminal(os.Stdout.Fd())
+	// TaskFilename represents the state of a download. This file will be located
+	// in $HOME/ProgramFolder/Download
+	TaskFilename string `toml:"-"`
 
-// UseHashLength sets the length of the hash used to prevent collisions.
-// Note that this can never be more than 32
-var UseHashLength = 16
+	// DisplayProgressBar enables/disables the display of the progress bar.
+	DisplayProgressBar bool `toml:"display_progress_bar"`
 
-// SaveWithHash enables/disables the collision protection using a hash
-// while moving the file from inside the program to outside.
-var SaveWithHash = false
+	// UseHashLength sets the length of the hash used to prevent collisions.
+	// Note that this can never be more than 32
+	UseHashLength uint8 `toml:"use_hash_length"`
 
-// CopyNBytes sets the bytes to copy in a row from the response body.
-var CopyNBytes = int64(250)
+	// SaveWithHash enables/disables the collision protection using a hash
+	// while moving the file from inside the program to outside.
+	SaveWithHash bool `toml:"save_with_hash"`
 
-// LogLevel restricts the logs to what the user wants to know using a numeric system.
-// 0 means no logs, 1 only important logs and 2 all logs.
-var LogLevel = uint8(2)
+	// CopyNBytes sets the bytes to copy in a row from the response body.
+	CopyNBytes int64 `toml:"copy_n_bytes"`
 
-// DownloadFolder defines in which directory the downloaded file will be moved to.
-// If it is empty, then the download folder will be the terminal cwd.
-var DownloadFolder = ""
+	// LogLevel restricts the logs to what the user wants to know using a numeric system.
+	// 0 means no logs, 1 only important logs and 2 all logs.
+	LogLevel uint8 `toml:"log_level"`
+
+	// DownloadFolder defines in which directory the downloaded file will be moved to.
+	// If it is empty, then the download folder will be the terminal cwd.
+	DownloadFolder string `toml:"download_folder"`
+}
+
+var DefaultConfig = &Configuration{
+	Home:               os.Getenv("HOME"),
+	ProgramFolder:      ".hget/",
+	ConfigFilename:     "config.toml",
+	TaskFilename:       "task.json",
+	DisplayProgressBar: isatty.IsTerminal(os.Stdout.Fd()),
+	UseHashLength:      uint8(16),
+	SaveWithHash:       false,
+	CopyNBytes:         int64(250),
+	LogLevel:           uint8(2),
+	DownloadFolder:     "",
+}
+
+var Config = DefaultConfig
+
+// filepath.Join(Internal.Home, Internal.ProgramFolder, Internal.ConfigFilename)
+func LoadConfig(configFilepath string) (*Configuration, error) {
+	config := DefaultConfig
+	loadedConfig := &Configuration{}
+
+	// Read config
+	file, err := ioutil.ReadFile(configFilepath)
+	if err != nil {
+		return config, fmt.Errorf("unable to read configuration file: %v", err)
+	}
+
+	// Parse config
+	if err = toml.Unmarshal(file, loadedConfig); err != nil {
+		return config, fmt.Errorf("unable to read configuration file: %v", err)
+	}
+
+	// Write to shared object
+	config.DisplayProgressBar = config.DisplayProgressBar && loadedConfig.DisplayProgressBar
+	if loadedConfig.UseHashLength <= 32 {
+		config.UseHashLength = loadedConfig.UseHashLength
+	}
+	if loadedConfig.CopyNBytes > 0 {
+		config.CopyNBytes = loadedConfig.CopyNBytes
+	}
+	config.SaveWithHash = loadedConfig.SaveWithHash
+	if loadedConfig.LogLevel <= 3 {
+		config.LogLevel = loadedConfig.LogLevel
+	}
+	config.DownloadFolder = loadedConfig.DownloadFolder
+
+	return config, nil
+}

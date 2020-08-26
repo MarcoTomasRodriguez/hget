@@ -49,12 +49,12 @@ func (task *Task) SaveTask() error {
 		return err
 	}
 
-	return ioutil.WriteFile(filepath.Join(folder, config.TaskFilename), jsonTask, 0644)
+	return ioutil.WriteFile(filepath.Join(folder, config.Config.TaskFilename), jsonTask, 0644)
 }
 
 // ReadTask reads the task from $HOME/ProgramFolder/Filename/TaskFilename
 func ReadTask(taskName string) (*Task, error) {
-	file := filepath.Join(config.Home, config.ProgramFolder, taskName, config.TaskFilename)
+	file := filepath.Join(config.Config.Home, config.Config.ProgramFolder, taskName, config.Config.TaskFilename)
 	logger.Info("Getting data from %s\n", file)
 
 	jsonTask, err := ioutil.ReadFile(file)
@@ -72,7 +72,7 @@ func ReadTask(taskName string) (*Task, error) {
 func GetAllTasks() ([]string, error) {
 	tasks := make([]string, 0)
 
-	tasksFolder, err := ioutil.ReadDir(filepath.Join(config.Home, config.ProgramFolder))
+	tasksFolder, err := ioutil.ReadDir(filepath.Join(config.Config.Home, config.Config.ProgramFolder))
 	if err != nil {
 		return tasks, err
 	}
@@ -89,7 +89,7 @@ func GetAllTasks() ([]string, error) {
 // RemoveTask removes a task by taskName.
 func RemoveTask(taskName string) error {
 	if !strings.Contains(taskName, "..") {
-		return os.RemoveAll(filepath.Join(config.Home, config.ProgramFolder, taskName))
+		return os.RemoveAll(filepath.Join(config.Config.Home, config.Config.ProgramFolder, taskName))
 	}
 	return fmt.Errorf("illegal task name")
 }
