@@ -16,7 +16,7 @@ const RDA = "https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/master/R
 const RDNA = "https://github.com/MarcoTomasRodriguez/hget"
 
 func DownloadTest(t *testing.T, url string, parallelism int) {
-	config.LogLevel = uint8(0)
+	config.Config.LogLevel = uint8(0)
 
 	// Get future filename of the download
 	filenameWithHash := utils.FilenameWithHash(url)
@@ -27,7 +27,7 @@ func DownloadTest(t *testing.T, url string, parallelism int) {
 	assert.NoError(t, err)
 
 	// Download with hash
-	config.SaveWithHash = true
+	config.Config.SaveWithHash = true
 	Download(url, nil, parallelism)
 	fileInfo, err := os.Stat(filenameWithHash)
 
@@ -43,7 +43,7 @@ func DownloadTest(t *testing.T, url string, parallelism int) {
 	assert.NoError(t, os.Remove(filenameWithHash))
 
 	// Download without hash
-	config.SaveWithHash = false
+	config.Config.SaveWithHash = false
 	Download(url, nil, parallelism)
 	fileInfo, err = os.Stat(filenameWithoutHash)
 

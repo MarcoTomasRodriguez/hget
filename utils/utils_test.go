@@ -32,7 +32,7 @@ func TestFilenameWithHash(t *testing.T) {
 	data := []string{"localhost", "localhost/my-file.file"}
 
 	for _, url := range data {
-		assert.Equal(t, HashOf(url)[:config.UseHashLength]+"-"+filepath.Base(url), FilenameWithHash(url))
+		assert.Equal(t, HashOf(url)[:config.Config.UseHashLength]+"-"+filepath.Base(url), FilenameWithHash(url))
 	}
 
 	assert.Panics(t, func() { FilenameWithHash(".") })
@@ -55,7 +55,7 @@ func TestFolderOf(t *testing.T) {
 	data := []string{"localhost", "localhost/my-file.file"}
 
 	for _, url := range data {
-		assert.Equal(t, filepath.Join(config.Home, config.ProgramFolder, FilenameWithHash(url)), FolderOf(url))
+		assert.Equal(t, filepath.Join(config.Config.Home, config.Config.ProgramFolder, FilenameWithHash(url)), FolderOf(url))
 	}
 
 	assert.Panics(t, func() { FolderOf("localhost/../") })

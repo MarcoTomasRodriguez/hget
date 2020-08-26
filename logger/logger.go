@@ -8,7 +8,7 @@ import (
 
 // log prints a message with a coloured header.
 func log(logLevel uint8, colorFn func(format string, a ...interface{}) string, header string, format string, a ...interface{}) {
-	if logLevel <= config.LogLevel {
+	if logLevel <= config.Config.LogLevel {
 		fmt.Printf(colorFn(header)+format, a...)
 	}
 }

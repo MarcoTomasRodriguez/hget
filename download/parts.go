@@ -31,7 +31,7 @@ func JoinParts(parts []string, outputPath string) error {
 	// sort with file name or we will join parts with wrong order
 	sort.Strings(parts)
 
-	if config.DisplayProgressBar {
+	if config.Config.DisplayProgressBar {
 		bar = pb.StartNew(len(parts)).Prefix(color.CyanString("Joining"))
 	}
 

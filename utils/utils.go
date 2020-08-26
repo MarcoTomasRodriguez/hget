@@ -55,7 +55,7 @@ func HashOf(str string) string {
 // FilenameWithHash returns the hash-basename from the url.
 func FilenameWithHash(url string) string {
 	base := filepath.Base(url)
-	hash := HashOf(url)[:config.UseHashLength]
+	hash := HashOf(url)[:config.Config.UseHashLength]
 	if base == "." {
 		logger.Panic(errors.New("there is no basename for the url"))
 	}
@@ -85,8 +85,8 @@ func FilenameWithoutHash(url string) string {
 
 // FolderOf gets the folder of a download safely.
 func FolderOf(url string) string {
-	safePath := filepath.Join(config.Home, config.ProgramFolder)
-	fullQualifyPath, err := filepath.Abs(filepath.Join(config.Home, config.ProgramFolder, FilenameWithHash(url)))
+	safePath := filepath.Join(config.Config.Home, config.Config.ProgramFolder)
+	fullQualifyPath, err := filepath.Abs(filepath.Join(config.Config.Home, config.Config.ProgramFolder, FilenameWithHash(url)))
 	FatalCheck(err)
 
 	// must ensure full qualify path is CHILD of safe path
