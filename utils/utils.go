@@ -41,9 +41,9 @@ func MkdirIfNotExist(folder string) error {
 	return nil
 }
 
-// ExistDir checks whether directory exists or not.
-func ExistDir(folder string) bool {
-	_, err := os.Stat(folder)
+// Exists checks whether some path exists or not.
+func Exists(path string) bool {
+	_, err := os.Stat(path)
 	return err == nil
 }
 
@@ -85,8 +85,8 @@ func FilenameWithoutHash(url string) string {
 
 // FolderOf gets the folder of a download safely.
 func FolderOf(url string) string {
-	safePath := filepath.Join(config.Config.Home, config.Config.ProgramFolder)
-	fullQualifyPath, err := filepath.Abs(filepath.Join(config.Config.Home, config.Config.ProgramFolder, FilenameWithHash(url)))
+	safePath := filepath.Join(config.Config.ProgramFolder)
+	fullQualifyPath, err := filepath.Abs(filepath.Join(config.Config.ProgramFolder, FilenameWithHash(url)))
 	FatalCheck(err)
 
 	// must ensure full qualify path is CHILD of safe path

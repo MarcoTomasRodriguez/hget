@@ -6,13 +6,11 @@ import (
 	"github.com/pelletier/go-toml"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 )
 
 // Configuration is the shared object which is used to persist information both inside the program and outside of it.
 type Configuration struct {
-	// Home is the $HOME of the system.
-	Home string `toml:"-"`
-
 	// ProgramFolder is the folder in which the program will store his information
 	// about the ongoing downloads. This path is relative to $HOME.
 	ProgramFolder string `toml:"-"`
@@ -50,8 +48,7 @@ type Configuration struct {
 // DefaultConfig is the default configuration instance.
 // The Config instance is based on these defaults.
 var DefaultConfig = &Configuration{
-	Home:               os.Getenv("HOME"),
-	ProgramFolder:      ".hget/",
+	ProgramFolder:      filepath.Join(os.Getenv("HOME"), ".hget"),
 	ConfigFilename:     "config.toml",
 	TaskFilename:       "task.json",
 	DisplayProgressBar: isatty.IsTerminal(os.Stdout.Fd()),

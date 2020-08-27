@@ -31,7 +31,6 @@ func TestLoadConfig(t *testing.T) {
 	assert.NoError(t, err)
 
 	testConfig := &Configuration{
-		Home:               DefaultConfig.Home,
 		ProgramFolder:      DefaultConfig.ProgramFolder,
 		ConfigFilename:     DefaultConfig.ConfigFilename,
 		TaskFilename:       DefaultConfig.TaskFilename,
