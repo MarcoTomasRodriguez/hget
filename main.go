@@ -16,9 +16,9 @@ func printUsage() {
 	logger.Info(`Usage:
 | hget [-n Threads] [URL]
 | hget list
-| hget resume [TaskName | URL]
+| hget resume [Task | URL]
 | hget clear
-| hget remove [TaskName | URL]
+| hget remove [Task | URL]
 `)
 	os.Exit(2)
 }

@@ -47,7 +47,13 @@ make clean build
 hget [-n parallelism] [URL]
 ```
 
-`-n`: Download threads (Default: CPUs).
+`-n` Download threads (Default: CPUs).
+
+### List
+
+```bash
+hget list
+```
 
 ### Resume
 
@@ -55,10 +61,16 @@ hget [-n parallelism] [URL]
 hget resume [Task | URL]
 ```
 
-### List tasks
+### Clear
 
 ```bash
-hget tasks
+hget clear
+```
+
+### Remove
+
+```bash
+hget remove [Task | URL]
 ```
 
 ## Configuration
