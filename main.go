@@ -15,17 +15,19 @@ import (
 func printUsage() {
 	logger.Info(`Usage:
 | hget [-n Threads] [URL]
-| hget tasks
-| hget resume [TaskName | URL]
+| hget list
+| hget resume [Task | URL]
+| hget clear
+| hget remove [Task | URL]
 `)
 	os.Exit(2)
 }
 
-func tasksCommand() {
+func listCommand() {
 	tasks, err := download.GetAllTasks()
 	utils.FatalCheck(err)
 
-	logger.Info("Currently on going download:\n")
+	logger.Info("Saved tasks:\n")
 	for _, task := range tasks {
 		fmt.Println(task)
 	}
@@ -38,12 +40,8 @@ func resumeCommand(args []string, conn int) {
 		os.Exit(1)
 	}
 
-	taskName := args[1]
-	if utils.IsURL(taskName) {
-		URL, err := utils.ResolveURL(taskName)
-		utils.FatalCheck(err)
-		taskName = utils.FilenameWithHash(URL)
-	}
+	taskName, err := download.FindTask(args[1])
+	utils.FatalCheck(err)
 
 	task, err := download.ReadTask(taskName)
 	utils.FatalCheck(err)
@@ -51,11 +49,30 @@ func resumeCommand(args []string, conn int) {
 	download.Download(task.URL, task, conn)
 }
 
+func removeCommand(args []string) {
+	if len(args) < 2 {
+		logger.Error("TaskName or URL is required.\n")
+		printUsage()
+		os.Exit(1)
+	}
+
+	taskName, err := download.FindTask(args[1])
+	utils.FatalCheck(err)
+
+	err = download.RemoveTask(taskName)
+	utils.FatalCheck(err)
+}
+
+func clearCommand() {
+	err := download.RemoveAllTasks()
+	utils.FatalCheck(err)
+}
+
 func downloadCommand(args []string, conn int) {
 	URL, err := utils.ResolveURL(args[0])
 	utils.FatalCheck(err)
 
-	if utils.ExistDir(utils.FolderOf(URL)) {
+	if utils.Exists(utils.FolderOf(URL)) {
 		logger.Warn("Downloading task already exists. Deleting it first.\n")
 		err := os.RemoveAll(utils.FolderOf(URL))
 		utils.FatalCheck(err)
@@ -78,13 +95,13 @@ func main() {
 	args := flag.Args()
 
 	if len(args) < 1 {
-		logger.Error("URL is required.\n")
+		logger.Error("URL or command is required.\n")
 		printUsage()
 		os.Exit(1)
 	}
 
 	// Load config
-	cfg, err := config.LoadConfig(filepath.Join(config.Config.Home, config.Config.ProgramFolder, config.Config.ConfigFilename))
+	cfg, err := config.LoadConfig(filepath.Join(config.Config.ProgramFolder, config.Config.ConfigFilename))
 	if err != nil {
 		logger.Error("%v", err)
 	}
@@ -92,11 +109,17 @@ func main() {
 
 	// Execute command
 	switch args[0] {
-	case "tasks":
-		tasksCommand()
+	case "list":
+		listCommand()
 		break
 	case "resume":
 		resumeCommand(args, *parallelismPtr)
+		break
+	case "clear":
+		clearCommand()
+		break
+	case "remove":
+		removeCommand(args)
 		break
 	default:
 		downloadCommand(args, *parallelismPtr)

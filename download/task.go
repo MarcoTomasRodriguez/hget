@@ -2,6 +2,7 @@ package download
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/MarcoTomasRodriguez/hget/logger"
@@ -54,7 +55,7 @@ func (task *Task) SaveTask() error {
 
 // ReadTask reads the task from $HOME/ProgramFolder/Filename/TaskFilename
 func ReadTask(taskName string) (*Task, error) {
-	file := filepath.Join(config.Config.Home, config.Config.ProgramFolder, taskName, config.Config.TaskFilename)
+	file := filepath.Join(config.Config.ProgramFolder, taskName, config.Config.TaskFilename)
 	logger.Info("Getting data from %s\n", file)
 
 	jsonTask, err := ioutil.ReadFile(file)
@@ -68,11 +69,31 @@ func ReadTask(taskName string) (*Task, error) {
 	return task, err
 }
 
+// FindTask finds a tasks by his identifier (this can be the task-name or the URL).
+func FindTask(identifier string) (string, error) {
+	if utils.Exists(filepath.Join(config.Config.ProgramFolder, identifier, config.Config.TaskFilename)) {
+		return identifier, nil
+	}
+
+	URL, err := utils.ResolveURL(identifier)
+	if err != nil {
+		return "", err
+	}
+
+	taskName := utils.FilenameWithHash(URL)
+
+	if utils.Exists(filepath.Join(config.Config.ProgramFolder, taskName, config.Config.TaskFilename)) {
+		return taskName, nil
+	}
+
+	return "", errors.New("task not found")
+}
+
 // GetAllTasks returns all the saved tasks
 func GetAllTasks() ([]string, error) {
 	tasks := make([]string, 0)
 
-	tasksFolder, err := ioutil.ReadDir(filepath.Join(config.Config.Home, config.Config.ProgramFolder))
+	tasksFolder, err := ioutil.ReadDir(config.Config.ProgramFolder)
 	if err != nil {
 		return tasks, err
 	}
@@ -89,7 +110,7 @@ func GetAllTasks() ([]string, error) {
 // RemoveTask removes a task by taskName.
 func RemoveTask(taskName string) error {
 	if !strings.Contains(taskName, "..") {
-		return os.RemoveAll(filepath.Join(config.Config.Home, config.Config.ProgramFolder, taskName))
+		return os.RemoveAll(filepath.Join(config.Config.ProgramFolder, taskName))
 	}
 	return fmt.Errorf("illegal task name")
 }

@@ -17,13 +17,13 @@ func TestTask(t *testing.T) {
 
 	assert.NoError(t, task.SaveTask())
 
-	assert.True(t, utils.ExistDir(utils.FolderOf(task.URL)))
-	assert.True(t, utils.ExistDir(filepath.Join(utils.FolderOf(task.URL), config.Config.TaskFilename)))
+	assert.True(t, utils.Exists(utils.FolderOf(task.URL)))
+	assert.True(t, utils.Exists(filepath.Join(utils.FolderOf(task.URL), config.Config.TaskFilename)))
 
 	assert.NoError(t, task2.SaveTask())
 
-	assert.True(t, utils.ExistDir(utils.FolderOf(task2.URL)))
-	assert.True(t, utils.ExistDir(filepath.Join(utils.FolderOf(task2.URL), config.Config.TaskFilename)))
+	assert.True(t, utils.Exists(utils.FolderOf(task2.URL)))
+	assert.True(t, utils.Exists(filepath.Join(utils.FolderOf(task2.URL), config.Config.TaskFilename)))
 
 	tasks, err := GetAllTasks()
 	actualTasks := []string{utils.FilenameWithHash(task.URL), utils.FilenameWithHash(task2.URL)}
