@@ -38,7 +38,7 @@ type Configuration struct {
 	// CopyNBytes sets the bytes to copy in a row from the response body.
 	CopyNBytes int64 `toml:"copy_n_bytes"`
 
-	// LogLevel restricts the logs to what the user wants to know using a numeric system.
+	// LogLevel restricts the logs to what the user wants to get.
 	// 0 means no logs, 1 only important logs and 2 all logs.
 	LogLevel uint8 `toml:"log_level"`
 
