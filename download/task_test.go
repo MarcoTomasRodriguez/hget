@@ -4,14 +4,15 @@ import (
 	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/MarcoTomasRodriguez/hget/utils"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"path/filepath"
 	"sort"
 	"testing"
 )
 
 func TestTask(t *testing.T) {
-	task := Task{URL: "localhost/my_file.file", Parts: []Part{}}
-	task2 := Task{URL: "localhost/another-file", Parts: []Part{}}
+	task := Task{URL: "localhost/my_file.file", Parts: nil}
+	task2 := Task{URL: "localhost/another-file", Parts: nil}
 
 	assert.NoError(t, RemoveAllTasks())
 
@@ -35,4 +36,7 @@ func TestTask(t *testing.T) {
 	savedTask, err := ReadTask(utils.FilenameWithHash(task.URL))
 	assert.NoError(t, err)
 	assert.Equal(t, task, *savedTask)
+
+	assert.NoError(t, os.RemoveAll(utils.FolderOf(task.URL)))
+	assert.NoError(t, os.RemoveAll(utils.FolderOf(task2.URL)))
 }

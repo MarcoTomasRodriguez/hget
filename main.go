@@ -14,11 +14,11 @@ import (
 
 func printUsage() {
 	logger.Info(`Usage:
-| hget [-n Threads] [URL]
-| hget list
-| hget resume [Task | URL]
-| hget clear
-| hget remove [Task | URL]
+ - hget [-n Threads] [URL]
+ - hget list
+ - hget resume [Task | URL]
+ - hget clear
+ - hget remove [Task | URL]
 `)
 	os.Exit(2)
 }
@@ -27,9 +27,14 @@ func listCommand() {
 	tasks, err := download.GetAllTasks()
 	utils.FatalCheck(err)
 
+	if len(tasks) == 0 {
+		logger.Info("No saved tasks.\n")
+		return
+	}
+
 	logger.Info("Saved tasks:\n")
 	for _, task := range tasks {
-		fmt.Println(task)
+		fmt.Printf(" - %s\n", task)
 	}
 }
 
@@ -103,7 +108,7 @@ func main() {
 	// Load config
 	cfg, err := config.LoadConfig(filepath.Join(config.Config.ProgramFolder, config.Config.ConfigFilename))
 	if err != nil {
-		logger.Error("%v", err)
+		logger.Warn("Using default configuration: %v\n", err)
 	}
 	config.Config = cfg
 
