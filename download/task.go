@@ -1,12 +1,12 @@
 package download
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/MarcoTomasRodriguez/hget/logger"
 	"github.com/MarcoTomasRodriguez/hget/utils"
+	"github.com/pelletier/go-toml"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -29,28 +29,27 @@ type Part struct {
 
 // SaveTask saves the current task as json into $HOME/ProgramFolder/Filename/TaskFilename
 func (task *Task) SaveTask() error {
-	// make temp folder
-	// only working in unix with env HOME
+	// Make temp folder. Only working in unix with env HOME.
 	folder := utils.FolderOf(task.URL)
 	logger.Info("Saving current download data in %s\n", folder)
 	if err := utils.MkdirIfNotExist(folder); err != nil {
 		return err
 	}
 
-	// move current downloading file to data folder
+	// Move downloaded files to the task folder
 	for _, part := range task.Parts {
 		if err := os.Rename(part.Path, filepath.Join(folder, filepath.Base(part.Path))); err != nil {
 			return err
 		}
 	}
 
-	// save task file
-	jsonTask, err := json.Marshal(task)
+	// Save task file
+	tomlTask, err := toml.Marshal(task)
 	if err != nil {
 		return err
 	}
 
-	return ioutil.WriteFile(filepath.Join(folder, config.Config.TaskFilename), jsonTask, 0644)
+	return ioutil.WriteFile(filepath.Join(folder, config.Config.TaskFilename), tomlTask, 0644)
 }
 
 // ReadTask reads the task from $HOME/ProgramFolder/Filename/TaskFilename
@@ -58,13 +57,15 @@ func ReadTask(taskName string) (*Task, error) {
 	file := filepath.Join(config.Config.ProgramFolder, taskName, config.Config.TaskFilename)
 	logger.Info("Getting data from %s\n", file)
 
-	jsonTask, err := ioutil.ReadFile(file)
+	// Load the task
+	tomlTask, err := ioutil.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
 
+	// Parse the task
 	task := new(Task)
-	err = json.Unmarshal(jsonTask, task)
+	err = toml.Unmarshal(tomlTask, task)
 
 	return task, err
 }

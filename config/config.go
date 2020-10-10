@@ -15,7 +15,7 @@ type Configuration struct {
 	// about the ongoing downloads. This path is relative to $HOME.
 	ProgramFolder string `toml:"-"`
 
-	// ConfigFilename is the
+	// ConfigFilename is the filename of the configuration file.
 	ConfigFilename string `toml:"-"`
 
 	// TaskFilename represents the state of a download. This file will be located
@@ -50,7 +50,7 @@ type Configuration struct {
 var DefaultConfig = &Configuration{
 	ProgramFolder:      filepath.Join(os.Getenv("HOME"), ".hget"),
 	ConfigFilename:     "config.toml",
-	TaskFilename:       "task.json",
+	TaskFilename:       "task.toml",
 	DisplayProgressBar: isatty.IsTerminal(os.Stdout.Fd()),
 	UseHashLength:      uint8(16),
 	SaveWithHash:       false,
