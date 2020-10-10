@@ -49,11 +49,15 @@ hget [-n parallelism] [URL]
 
 `-n` Download threads (Default: CPUs).
 
+![Download demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gifs/download.gif)
+
 ### List
 
 ```bash
 hget list
 ```
+
+![List demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gifs/list.gif)
 
 ### Resume
 
@@ -61,17 +65,23 @@ hget list
 hget resume [Task | URL]
 ```
 
+![Resume demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gifs/resume.gif)
+
 ### Clear
 
 ```bash
 hget clear
 ```
 
+![Clear demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gifs/clear.gif)
+
 ### Remove
 
 ```bash
 hget remove [Task | URL]
 ```
+
+![Remove demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gifs/remove.gif)
 
 ## Configuration
 
