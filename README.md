@@ -21,24 +21,6 @@ then it would be a great option to use ~5 download threads.
 But if the computer allows you to download at 5MB/s and the server provides you >5MB/s, then there's no need to use more than 1
 download thread.
 
-## Install
-
-```bash
-go get -u github.com/MarcoTomasRodriguez/hget
-cd $GOPATH/src/github.com/MarcoTomasRodriguez/hget
-make install
-```
-
-This will install the program with the golang default installer.
-
-Alternatively, you can build the binary directly with:
-
-```bash
-go get -u github.com/MarcoTomasRodriguez/hget
-cd $GOPATH/src/github.com/MarcoTomasRodriguez/hget
-make clean build
-```
-
 ## Usage
 
 ### Download
