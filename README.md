@@ -80,7 +80,7 @@ display_progress_bar = true
 use_hash_length = 16
 
 # enables/disables the collision protection using a hash while moving the file from inside the program to outside.
-save_with_hash = true
+save_with_hash = false
 
 # sets the bytes to copy in a row from the response body. 
 # Constrains: 0 < x
