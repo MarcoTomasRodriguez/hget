@@ -9,7 +9,6 @@ import (
 	"github.com/fatih/color"
 	"gopkg.in/cheggaaa/pb.v1"
 	"io"
-	"math"
 	"net/http"
 	"os"
 	"os/signal"
@@ -109,30 +108,30 @@ func Download(url string, task *Task, parallelism int) {
 				return
 			}
 
-			// Join parts and then remove them
 			outputName := ""
 			downloadTime := time.Since(downloadStart)
 			downloadSize := utils.ReadableMemorySize(writtenBytes)
-			downloadSpeed := utils.ReadableMemorySize(writtenBytes/int64(math.Max(downloadTime.Seconds(), 1))) + "/s"
+			downloadSpeed := utils.ReadableMemorySize(int64(float64(writtenBytes)/downloadTime.Seconds())) + "/s"
 			logger.Info("Downloaded %s in %s at an average speed of %s.\n", downloadSize, downloadTime, downloadSpeed)
 
+			// Save with/without hash depending on configuration
 			if config.Config.SaveWithHash {
 				outputName = utils.FilenameWithHash(url)
 			} else {
 				outputName = utils.FilenameWithoutHash(url)
 			}
 
+			// Join the parts and save the complete file in the output path
 			logger.Info("Joining process initiated.\n")
-
 			outputPath, err := filepath.Abs(filepath.Join(config.Config.DownloadFolder, outputName))
 			utils.FatalCheck(err)
 
 			err = JoinParts(files, outputPath)
 			utils.FatalCheck(err)
-
 			logger.Info("Joining process finished.\n")
-			logger.Info("Removing parts.\n")
 
+			// Remove download parts
+			logger.Info("Removing parts.\n")
 			err = os.RemoveAll(utils.FolderOf(url))
 			utils.FatalCheck(err)
 
