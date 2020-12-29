@@ -109,7 +109,7 @@ func Download(url string, task *Task, parallelism int) {
 			}
 
 			outputName := ""
-			downloadTime := time.Since(downloadStart)
+			downloadTime := time.Since(downloadStart).Round(time.Millisecond)
 			downloadSize := utils.ReadableMemorySize(writtenBytes)
 			downloadSpeed := utils.ReadableMemorySize(int64(float64(writtenBytes)/downloadTime.Seconds())) + "/s"
 			logger.Info("Downloaded %s in %s at an average speed of %s.\n", downloadSize, downloadTime, downloadSpeed)
