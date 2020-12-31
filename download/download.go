@@ -53,12 +53,16 @@ func Download(url string, task *Task, parallelism int) {
 
 	// doneChan represents the end of the main download thread
 	doneChan := make(chan bool, parallelism)
+
 	// errorChan represents an unrecoverable error
 	errorChan := make(chan error, 1)
+
 	// taskChan represents the last state of an interrupted task/part
 	taskChan := make(chan Part, 1)
+
 	// interruptChan signalizes the interruption of a task
 	interruptChan := make(chan bool, parallelism)
+
 	// writtenBytesChan represents the written bytes of every task
 	writtenBytesChan := make(chan int64, parallelism)
 
@@ -85,17 +89,17 @@ func Download(url string, task *Task, parallelism int) {
 
 	for {
 		select {
-		case <-signalChan:
-			isInterrupted = true
-			for i := 0; i < parallelism; i++ {
-				interruptChan <- true
-			}
 		case err := <-errorChan:
 			logger.Panic(err)
 		case part := <-taskChan:
 			parts = append(parts, part)
 		case wb := <-writtenBytesChan:
 			writtenBytes += wb
+		case <-signalChan:
+			isInterrupted = true
+			for i := 0; i < parallelism; i++ {
+				interruptChan <- true
+			}
 		case <-doneChan:
 			if isInterrupted {
 				if downloader.Resumable {
@@ -205,43 +209,49 @@ func NewHTTPDownloader(url string, parallelism int64) *HTTPDownloader {
 }
 
 // Do downloads from the downloader.
-func (d *HTTPDownloader) Do(doneChan chan bool, errorChan chan error, interruptChan chan bool, taskChan chan Part,
-	writtenBytesChan chan int64) {
-	var ws sync.WaitGroup
+func (downloader *HTTPDownloader) Do(doneChan chan bool, errorChan chan error, interruptChan chan bool, taskChan chan Part, writtenBytesChan chan int64) {
+	var waitGroup sync.WaitGroup
 	var barPool *pb.Pool
 	var err error
 
-	bars := make([]*pb.ProgressBar, 0)
+	bars := make([]*pb.ProgressBar, 0, len(downloader.Parts))
 
-	for partIndex, p := range d.Parts {
+	for partIndex, part := range downloader.Parts {
 		var bar *pb.ProgressBar
+		var partIndex = partIndex
 
+		// Setup progress bar
 		if config.Config.DisplayProgressBar {
-			bar = pb.New64(p.RangeTo - p.RangeFrom).SetUnits(pb.U_BYTES).Prefix(color.YellowString(
-				fmt.Sprintf("%s-%d", d.FileName, partIndex)))
+			bar = pb.New64(part.RangeTo - part.RangeFrom).SetUnits(pb.U_BYTES).Prefix(
+				color.YellowString(fmt.Sprintf("%s-%d", downloader.FileName, partIndex)),
+			)
 			bars = append(bars, bar)
 		}
 
-		ws.Add(1)
-		partIndex := partIndex
-		go func(d *HTTPDownloader, part Part, bar *pb.ProgressBar) {
-			defer ws.Done()
-			var ranges string
+		// Add downloader part to wait group
+		waitGroup.Add(1)
 
-			if part.RangeTo != d.FileLength {
-				ranges = fmt.Sprintf("bytes=%d-%d", part.RangeFrom, part.RangeTo)
-			} else {
-				ranges = fmt.Sprintf("bytes=%d-", part.RangeFrom) // get all
-			}
+		go func(downloader *HTTPDownloader, part Part, bar *pb.ProgressBar) {
+			// On function end, remove downloader part from wait group
+			defer waitGroup.Done()
 
 			// Send request
-			req, err := http.NewRequest("GET", d.URL, nil)
+			req, err := http.NewRequest("GET", downloader.URL, nil)
 			if err != nil {
 				errorChan <- err
 				return
 			}
 
-			if d.Parallelism > 1 {
+			// Setup range download if parallelism is greater than 1
+			if downloader.Parallelism > 1 {
+				var ranges string
+
+				if part.RangeTo != downloader.FileLength {
+					ranges = fmt.Sprintf("bytes=%d-%d", part.RangeFrom, part.RangeTo)
+				} else {
+					ranges = fmt.Sprintf("bytes=%d-", part.RangeFrom) // get all
+				}
+
 				req.Header.Add("Range", ranges)
 			}
 
@@ -253,6 +263,7 @@ func (d *HTTPDownloader) Do(doneChan chan bool, errorChan chan error, interruptC
 				return
 			}
 
+			// Create part file
 			file, err := os.OpenFile(part.Path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 			defer file.Close()
 			if err != nil {
@@ -260,6 +271,7 @@ func (d *HTTPDownloader) Do(doneChan chan bool, errorChan chan error, interruptC
 				return
 			}
 
+			// Create writer with progress bar if enabled
 			var writer io.Writer
 			if config.Config.DisplayProgressBar {
 				writer = io.MultiWriter(file, bar)
@@ -271,6 +283,7 @@ func (d *HTTPDownloader) Do(doneChan chan bool, errorChan chan error, interruptC
 			for {
 				select {
 				case <-interruptChan:
+					// Save task and stop download
 					taskChan <- Part{
 						Index:     partIndex,
 						Path:      part.Path,
@@ -279,16 +292,23 @@ func (d *HTTPDownloader) Do(doneChan chan bool, errorChan chan error, interruptC
 					}
 					return
 				default:
+					// Copy from response to writer
 					written, err := io.CopyN(writer, resp.Body, config.Config.CopyNBytes)
 					writtenBytesChan <- written
 					current += written
+
 					if err != nil {
+						// Throw error if any (in this case, EOF is not considered an error)
 						if err != io.EOF {
 							errorChan <- err
 						}
+
+						// Finish progress bar
 						if config.Config.DisplayProgressBar {
 							bar.Finish()
 						}
+
+						// Save task and stop download
 						taskChan <- Part{
 							Index:     partIndex,
 							Path:      part.Path,
@@ -299,9 +319,10 @@ func (d *HTTPDownloader) Do(doneChan chan bool, errorChan chan error, interruptC
 					}
 				}
 			}
-		}(d, p, bar)
+		}(downloader, part, bar)
 	}
 
+	// Setup progress bar pool
 	if config.Config.DisplayProgressBar {
 		barPool, err = pb.StartPool(bars...)
 		if err != nil {
@@ -310,8 +331,10 @@ func (d *HTTPDownloader) Do(doneChan chan bool, errorChan chan error, interruptC
 		}
 	}
 
-	ws.Wait()
+	// Wait until the last part finished his download
+	waitGroup.Wait()
 
+	// Stop progress bar pool
 	if config.Config.DisplayProgressBar {
 		if err = barPool.Stop(); err != nil {
 			errorChan <- err

@@ -50,7 +50,7 @@ func DownloadTest(t *testing.T, url string, parallelism int) {
 	// Check if file was created
 	assert.False(t, os.IsNotExist(err))
 
-	// Verify integrity (not integrity)
+	// Verify length (not integrity)
 	if resp.ContentLength != -1 {
 		assert.Equal(t, resp.ContentLength, fileInfo.Size())
 	}
