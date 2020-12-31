@@ -21,7 +21,7 @@ import (
 
 var (
 	client = &http.Client{
-		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: false}},
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	}
 	resumable = true
 )
@@ -43,21 +43,26 @@ type HTTPDownloader struct {
 
 // Download downloads the file from the url considering the state of the task using parallelism.
 func Download(url string, task *Task, parallelism int) {
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-
 	// Set up parallelism
-	var files = make([]string, 0)
 	var parts = make([]Part, 0)
 	var isInterrupted = false
 
+	// signalChan listens to a syscall to interrupt the download
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	// doneChan represents the end of the main download thread
 	doneChan := make(chan bool, parallelism)
-	fileChan := make(chan string, parallelism)
+	// errorChan represents an unrecoverable error
 	errorChan := make(chan error, 1)
+	// taskChan represents the last state of an interrupted task/part
 	taskChan := make(chan Part, 1)
+	// interruptChan signalizes the interruption of a task
 	interruptChan := make(chan bool, parallelism)
+	// writtenBytesChan represents the written bytes of every task
 	writtenBytesChan := make(chan int64, parallelism)
 
+	// Start or resume download
 	var downloader *HTTPDownloader
 	if task == nil {
 		downloader = NewHTTPDownloader(url, int64(parallelism))
@@ -76,7 +81,7 @@ func Download(url string, task *Task, parallelism int) {
 	downloadStart := time.Now()
 	writtenBytes := int64(0)
 
-	go downloader.Do(doneChan, fileChan, errorChan, interruptChan, taskChan, writtenBytesChan)
+	go downloader.Do(doneChan, errorChan, interruptChan, taskChan, writtenBytesChan)
 
 	for {
 		select {
@@ -85,8 +90,6 @@ func Download(url string, task *Task, parallelism int) {
 			for i := 0; i < parallelism; i++ {
 				interruptChan <- true
 			}
-		case file := <-fileChan:
-			files = append(files, file)
 		case err := <-errorChan:
 			logger.Panic(err)
 		case part := <-taskChan:
@@ -121,11 +124,19 @@ func Download(url string, task *Task, parallelism int) {
 				outputName = utils.FilenameWithoutHash(url)
 			}
 
-			// Join the parts and save the complete file in the output path
 			logger.Info("Joining process initiated.\n")
+
+			// Get output path
 			outputPath, err := filepath.Abs(filepath.Join(config.Config.DownloadFolder, outputName))
 			utils.FatalCheck(err)
 
+			// Get the full path to the download parts
+			var files = make([]string, 0, len(parts))
+			for _, part := range parts {
+				files = append(files, part.Path)
+			}
+
+			// Join the parts and save the complete file in the output path
 			err = JoinParts(files, outputPath)
 			utils.FatalCheck(err)
 			logger.Info("Joining process finished.\n")
@@ -155,20 +166,18 @@ func NewHTTPDownloader(url string, parallelism int64) *HTTPDownloader {
 	resp, err := client.Do(req)
 	utils.FatalCheck(err)
 
-	// Check support for range download, if not, change parallelism to 1
-	if resp.Header.Get(acceptRangeHeader) == "" {
-		logger.Info("Target url doesn't support range download. Changing parallelism to 1.\n")
-		parallelism = 1
-	}
-
-	// Get download range
+	// Check for Content-Length and Accept-Ranges headers
 	contentLength := resp.Header.Get(contentLengthHeader)
+	acceptRange := resp.Header.Get(acceptRangeHeader)
 	if contentLength == "" {
-		logger.Info("Target url doesn't contain Content-Length header. Changing parallelism to 1.\n")
+		logger.Info("Target url doesn't contain Content-Length header. Thus, the following features were disabled: progress bar, resumable downloads and parallelism.\n")
 		contentLength = "0"
 		parallelism = 1
 		resumable = false
 		config.Config.DisplayProgressBar = false
+	} else if acceptRange == "" {
+		logger.Info("Target url doesn't contain Accept-Range header. Thus, the parallelism feature was disabled.\n")
+		parallelism = 1
 	}
 
 	// Get file length
@@ -196,24 +205,25 @@ func NewHTTPDownloader(url string, parallelism int64) *HTTPDownloader {
 }
 
 // Do downloads from the downloader.
-func (d *HTTPDownloader) Do(doneChan chan bool, fileChan chan string, errorChan chan error, interruptChan chan bool,
-	taskSaveChan chan Part, writtenBytesChan chan int64) {
+func (d *HTTPDownloader) Do(doneChan chan bool, errorChan chan error, interruptChan chan bool, taskChan chan Part,
+	writtenBytesChan chan int64) {
 	var ws sync.WaitGroup
 	var barPool *pb.Pool
 	var err error
 
 	bars := make([]*pb.ProgressBar, 0)
 
-	for i, p := range d.Parts {
+	for partIndex, p := range d.Parts {
 		var bar *pb.ProgressBar
 
 		if config.Config.DisplayProgressBar {
 			bar = pb.New64(p.RangeTo - p.RangeFrom).SetUnits(pb.U_BYTES).Prefix(color.YellowString(
-				fmt.Sprintf("%s-%d", d.FileName, i)))
+				fmt.Sprintf("%s-%d", d.FileName, partIndex)))
 			bars = append(bars, bar)
 		}
 
 		ws.Add(1)
+		partIndex := partIndex
 		go func(d *HTTPDownloader, part Part, bar *pb.ProgressBar) {
 			defer ws.Done()
 			var ranges string
@@ -261,7 +271,8 @@ func (d *HTTPDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 			for {
 				select {
 				case <-interruptChan:
-					taskSaveChan <- Part{
+					taskChan <- Part{
+						Index:     partIndex,
 						Path:      part.Path,
 						RangeFrom: current + part.RangeFrom,
 						RangeTo:   part.RangeTo,
@@ -278,7 +289,12 @@ func (d *HTTPDownloader) Do(doneChan chan bool, fileChan chan string, errorChan 
 						if config.Config.DisplayProgressBar {
 							bar.Finish()
 						}
-						fileChan <- part.Path
+						taskChan <- Part{
+							Index:     partIndex,
+							Path:      part.Path,
+							RangeFrom: part.RangeFrom,
+							RangeTo:   part.RangeTo,
+						}
 						return
 					}
 				}
