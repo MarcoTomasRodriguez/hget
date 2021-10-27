@@ -37,7 +37,7 @@ For example, if the client can download 100MB/s and the server only provides you
 
 Other features of this software are,
 
-1. Interruptible downloads: press <kdb>Ctrl</kdb> <kdb>C</kdb> or <kdb>⌘</kdb> <kdb>C</kdb> and the download will stop gracefully.
+1. Interruptible downloads: press <kbd>Ctrl</kbd> + <kbd>C</kbd> or <kbd>⌘</kbd> + <kbd>C</kbd> and the download will stop gracefully.
 2. Resumable downloads: use `hget resume ID` to resume an interrupted download.
 3. Prevent file collision: enable the collision protection in the configuration and downloads with the same name but coming from different URLs will not collide (a hash is included before the filename).
 
