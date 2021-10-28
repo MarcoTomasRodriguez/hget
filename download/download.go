@@ -20,8 +20,8 @@ import (
 	"github.com/pelletier/go-toml"
 )
 
-// download ...
-type download struct {
+// Download ...
+type Download struct {
 	// ID is the task unique identifier.
 	// It is used to allow the download of many files with the same name from different sources.
 	// This field will be initialized on creation.
@@ -57,7 +57,7 @@ func ParseDownloadID(downloadURL string) (string, error) {
 }
 
 // NewDownload ...
-func NewDownload(downloadURL string, totalWorkers uint16) (*download, error) {
+func NewDownload(downloadURL string, totalWorkers uint16) (*Download, error) {
 	// Resolve download url.
 	downloadURL, err := utils.ResolveURL(downloadURL)
 	if err != nil {
@@ -113,7 +113,7 @@ func NewDownload(downloadURL string, totalWorkers uint16) (*download, error) {
 		workers[i] = NewWorker(uint16(i), totalWorkers, downloadID, downloadURL, downloadSize)
 	}
 
-	return &download{
+	return &Download{
 		ID:          downloadID,
 		URL:         downloadURL,
 		Name:        downloadName,
@@ -124,16 +124,16 @@ func NewDownload(downloadURL string, totalWorkers uint16) (*download, error) {
 }
 
 // GetDownload gets a download by his id.
-func GetDownload(downloadID string) (*download, error) {
-	d := &download{ID: downloadID, IsResumable: true}
+func GetDownload(downloadID string) (*Download, error) {
+	d := &Download{ID: downloadID, IsResumable: true}
 
 	// Check if download folder exists.
-	if _, err := os.Stat(d.folderPath()); os.IsNotExist(err) {
+	if _, err := os.Stat(d.FolderPath()); os.IsNotExist(err) {
 		return nil, utils.ErrDownloadNotExist
 	}
 
 	// Read download file.
-	downloadFile, err := ioutil.ReadFile(d.filePath())
+	downloadFile, err := ioutil.ReadFile(d.FilePath())
 	if err != nil {
 		return nil, utils.ErrDownloadBroken
 	}
@@ -147,8 +147,8 @@ func GetDownload(downloadID string) (*download, error) {
 }
 
 // ListDownloads lists all the saved downloads.
-func ListDownloads() ([]*download, error) {
-	var downloads []*download
+func ListDownloads() ([]*Download, error) {
+	var downloads []*Download
 
 	// List elements inside the internal downloads' directory.
 	downloadFolders, err := ioutil.ReadDir(config.Config.DownloadFolder())
@@ -177,17 +177,17 @@ func DeleteDownload(downloadID string) error {
 }
 
 // String ...
-func (d download) String() string {
+func (d Download) String() string {
 	return fmt.Sprintln(" ⁕ ", color.HiCyanString(d.ID), " ⇒ ", color.HiCyanString("URL:"), d.URL, color.HiCyanString("Size:"), utils.ReadableMemorySize(d.Size))
 }
 
 // Writer ...
-func (d download) Writer() (io.WriteCloser, error) {
-	return os.OpenFile(d.outputFilePath(), os.O_CREATE|os.O_WRONLY, os.ModePerm)
+func (d Download) Writer() (io.WriteCloser, error) {
+	return os.OpenFile(d.OutputFilePath(), os.O_CREATE|os.O_WRONLY, os.ModePerm)
 }
 
-// outputFilePath ...
-func (d download) outputFilePath() string {
+// OutputFilePath ...
+func (d Download) OutputFilePath() string {
 	if config.Config.Download.CollisionProtection {
 		return filepath.Join(config.Config.Download.Folder, utils.HashFilename(d.URL, d.Name))
 	}
@@ -195,23 +195,24 @@ func (d download) outputFilePath() string {
 	return filepath.Join(config.Config.Download.Folder, d.Name)
 }
 
-// folderPath gets the path to the download folder.
-func (d download) folderPath() string {
+// FolderPath gets the path to the download folder.
+func (d Download) FolderPath() string {
 	return filepath.Join(config.Config.DownloadFolder(), d.ID)
 }
 
-// filePath gets the path to the download TOML file.
-func (d download) filePath() string {
-	return filepath.Join(d.folderPath(), "download.toml")
+// FilePath gets the path to the download TOML file.
+func (d Download) FilePath() string {
+	return filepath.Join(d.FolderPath(), "download.toml")
 }
 
 // Execute ...
-func (d download) Execute(ctx context.Context) error {
-	// Initialize uplink channel.
-	downloadChannel := make(chan interface{})
+func (d Download) Execute(ctx context.Context) error {
+	// Initialize uplink channels.
+	errorChannel := make(chan error)
+	doneChannel := make(chan struct{})
 	workerProgressBars := make([]*pb.ProgressBar, len(d.Workers))
 
-	if err := os.MkdirAll(d.folderPath(), os.ModePerm); err != nil {
+	if err := os.MkdirAll(d.FolderPath(), os.ModePerm); err != nil {
 		return err
 	}
 
@@ -221,7 +222,7 @@ func (d download) Execute(ctx context.Context) error {
 		// Start download Workers.
 		for i, w := range d.Workers {
 			// Setup progress bar.
-			bar := pb.New64(int64(w.RangeTo - w.RangeFrom - w.size())).SetUnits(pb.U_BYTES).Prefix(
+			bar := pb.New64(int64(w.RangeTo - w.RangeFrom - w.Size())).SetUnits(pb.U_BYTES).Prefix(
 				color.CyanString(fmt.Sprintf("Worker #%d", w.Index)),
 			)
 
@@ -232,8 +233,8 @@ func (d download) Execute(ctx context.Context) error {
 				// When the worker finished its execution remove it from wait group.
 				defer waitGroup.Done()
 
-				if err := w.execute(ctx, bar); err != nil {
-					downloadChannel <- ErrorEvent{Payload: err}
+				if err := w.Execute(ctx, bar); err != nil {
+					errorChannel <- err
 				}
 			}()
 
@@ -251,7 +252,7 @@ func (d download) Execute(ctx context.Context) error {
 		// Wait until the last worker has finished his download.
 		waitGroup.Wait()
 
-		downloadChannel <- DoneEvent{}
+		doneChannel <- struct{}{}
 	}(ctx)
 
 	for {
@@ -264,19 +265,16 @@ func (d download) Execute(ctx context.Context) error {
 
 			// If download was interrupted, and it is resumable, then save it.
 			return d.save()
-		case event := <-downloadChannel:
-			switch ev := event.(type) {
-			case ErrorEvent:
-				return ev.Payload
-			case DoneEvent:
-				return d.finish()
-			}
+		case <-doneChannel:
+			return d.finish()
+		case err := <-errorChannel:
+			return err
 		}
 	}
 }
 
 // joinWorkers joins the worker files into the output file.
-func (d download) joinWorkers() error {
+func (d Download) joinWorkers() error {
 	// Open output file.
 	downloadWriter, err := d.Writer()
 	if err != nil {
@@ -320,9 +318,9 @@ func (d download) joinWorkers() error {
 }
 
 // save ...
-func (d download) save() error {
+func (d Download) save() error {
 	// Create directories.
-	if err := os.MkdirAll(d.folderPath(), 0644); err != nil {
+	if err := os.MkdirAll(d.FolderPath(), 0644); err != nil {
 		return err
 	}
 
@@ -333,26 +331,26 @@ func (d download) save() error {
 	}
 
 	// Save download as toml.
-	if err := ioutil.WriteFile(d.filePath(), downloadToml, 0644); err != nil {
+	if err := ioutil.WriteFile(d.FilePath(), downloadToml, 0644); err != nil {
 		return err
 	}
 
-	logger.LogInfo("Resumable download saved in %s.", d.folderPath())
+	logger.LogInfo("Resumable download saved in %s.", d.FolderPath())
 	return nil
 }
 
 // finish ...
-func (d download) finish() error {
+func (d Download) finish() error {
 	// Join Workers.
 	if err := d.joinWorkers(); err != nil {
 		return err
 	}
 
 	// Remove internal files.
-	if err := os.RemoveAll(d.folderPath()); err != nil {
+	if err := os.RemoveAll(d.FolderPath()); err != nil {
 		return err
 	}
 
-	logger.LogInfo("Download saved in %s.", d.outputFilePath())
+	logger.LogInfo("Download saved in %s.", d.OutputFilePath())
 	return nil
 }

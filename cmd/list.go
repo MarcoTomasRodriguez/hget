@@ -27,7 +27,7 @@ INFO: Saved downloads:
 
 		// Check if there are no saved downloads.
 		if len(downloads) == 0 {
-			logger.LogInfo("There are no saved downloads.\n")
+			logger.LogInfo("There are no saved downloads.")
 			return
 		}
 

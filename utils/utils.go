@@ -27,7 +27,8 @@ const (
 	filenameLengthLimit = 255
 )
 
-// ConsoleCancelableContext ...
+// ConsoleCancelableContext creates a context that can be canceled from the console.
+// For example, by typing Ctrl + C.
 func ConsoleCancelableContext() context.Context {
 	ctx, cancel := context.WithCancel(context.Background())
 	sig := make(chan os.Signal, 1)
@@ -36,7 +37,6 @@ func ConsoleCancelableContext() context.Context {
 	go func() {
 		select {
 		case <-sig:
-			fmt.Println("sig")
 			cancel()
 		case <-ctx.Done():
 		}

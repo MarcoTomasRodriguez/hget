@@ -8,9 +8,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// configuration ...
-// is the shared object which is used to persist information both inside the program and outside it.
-type configuration struct {
+// Configuration defines the behaviour of the application.
+type Configuration struct {
 	// ProgramFolder is the folder used by the program to save temporal files, such as ongoing and paused downloads.
 	ProgramFolder string `mapstructure:"program_folder"`
 
@@ -37,15 +36,15 @@ type configuration struct {
 var Filepath string
 
 // Config is the shared configuration instance.
-var Config = &configuration{}
+var Config = &Configuration{}
 
 // DownloadFolder ...
-func (config configuration) DownloadFolder() string {
+func (config Configuration) DownloadFolder() string {
 	return filepath.Join(config.ProgramFolder, "downloads")
 }
 
 // Validate validates the config.
-func (config configuration) Validate() error {
+func (config Configuration) Validate() error {
 	if config.Download.UrlChecksumLength > 32 {
 		return fmt.Errorf("UrlChecksumLength should be between 0 and 32")
 	}

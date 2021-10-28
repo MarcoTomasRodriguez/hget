@@ -27,7 +27,7 @@ INFO: Removed downloads:
 
 		// Check if there are no saved downloads.
 		if len(downloads) == 0 {
-			logger.LogInfo("There are no downloads to remove.\n")
+			logger.LogInfo("There are no downloads to remove.")
 			return
 		}
 

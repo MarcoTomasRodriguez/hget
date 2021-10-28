@@ -25,9 +25,9 @@ $ hget resume 01cc0f0a3d94af18-file1.txt`,
 
 		switch err {
 		case utils.ErrDownloadNotExist:
-			logger.LogError("download does not exist.\n")
+			logger.LogError("Download does not exist.")
 		case utils.ErrDownloadBroken:
-			logger.LogError("download is broken, and thus will be removed.\n")
+			logger.LogError("Download is broken, and thus will be removed.")
 			_ = download.DeleteDownload(args[0])
 		default:
 			err := d.Execute(ctx)

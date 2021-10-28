@@ -54,21 +54,21 @@ func NewWorker(workerIndex uint16, totalWorkers uint16, downloadId string, downl
 }
 
 func (w Worker) Reader() (io.ReadCloser, error) {
-	return os.OpenFile(w.filePath(), os.O_RDONLY, 0600)
+	return os.OpenFile(w.FilePath(), os.O_RDONLY, 0600)
 }
 
 func (w Worker) Writer() (io.WriteCloser, error) {
-	return os.OpenFile(w.filePath(), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+	return os.OpenFile(w.FilePath(), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
 }
 
-// filePath ...
-func (w Worker) filePath() string {
+// FilePath ...
+func (w Worker) FilePath() string {
 	return filepath.Join(config.Config.DownloadFolder(), w.DownloadID, fmt.Sprintf("worker.%05d", w.Index))
 }
 
-// size ...
-func (w Worker) size() uint64 {
-	fileInfo, err := os.Stat(w.filePath())
+// Size ...
+func (w Worker) Size() uint64 {
+	fileInfo, err := os.Stat(w.FilePath())
 	if err != nil {
 		return 0
 	}
@@ -76,12 +76,13 @@ func (w Worker) size() uint64 {
 	return uint64(fileInfo.Size())
 }
 
-func (w Worker) execute(ctx context.Context, bar *pb.ProgressBar) error {
+// Execute ...
+func (w Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 	// Finish progress bar on exit.
 	defer bar.Finish()
 
 	// Compute current range from (defined start + worker file size).
-	currentRangeFrom := w.RangeFrom + w.size()
+	currentRangeFrom := w.RangeFrom + w.Size()
 
 	// Create worker file.
 	workerWriter, err := w.Writer()
@@ -99,7 +100,6 @@ func (w Worker) execute(ctx context.Context, bar *pb.ProgressBar) error {
 	}
 
 	// Check if file size exceeds range.
-	fmt.Println(currentRangeFrom, w.RangeTo)
 	if currentRangeFrom > w.RangeTo {
 		return nil
 	}
@@ -120,7 +120,6 @@ func (w Worker) execute(ctx context.Context, bar *pb.ProgressBar) error {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println(w.Index)
 			return nil
 		default:
 			// Copy from response to writer.
