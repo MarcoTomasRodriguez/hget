@@ -54,11 +54,11 @@ func NewWorker(workerIndex uint16, totalWorkers uint16, downloadId string, downl
 }
 
 func (w Worker) Reader() (io.ReadCloser, error) {
-	return os.OpenFile(w.FilePath(), os.O_RDONLY, 0600)
+	return os.OpenFile(w.FilePath(), os.O_RDONLY, 0644)
 }
 
 func (w Worker) Writer() (io.WriteCloser, error) {
-	return os.OpenFile(w.FilePath(), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+	return os.OpenFile(w.FilePath(), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 }
 
 // FilePath ...

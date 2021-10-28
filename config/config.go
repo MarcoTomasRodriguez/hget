@@ -107,5 +107,5 @@ func LoadConfig() {
 	}
 
 	// Create internal program folders.
-	_ = os.MkdirAll(filepath.Join(Config.ProgramFolder, "downloads"), os.ModePerm)
+	_ = os.MkdirAll(filepath.Join(Config.ProgramFolder, "downloads"), 0755)
 }

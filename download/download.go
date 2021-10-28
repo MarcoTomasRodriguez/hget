@@ -183,7 +183,7 @@ func (d Download) String() string {
 
 // Writer ...
 func (d Download) Writer() (io.WriteCloser, error) {
-	return os.OpenFile(d.OutputFilePath(), os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	return os.OpenFile(d.OutputFilePath(), os.O_CREATE|os.O_WRONLY, 0644)
 }
 
 // OutputFilePath ...
@@ -212,7 +212,7 @@ func (d Download) Execute(ctx context.Context) error {
 	doneChannel := make(chan struct{})
 	workerProgressBars := make([]*pb.ProgressBar, len(d.Workers))
 
-	if err := os.MkdirAll(d.FolderPath(), os.ModePerm); err != nil {
+	if err := os.MkdirAll(d.FolderPath(), 0755); err != nil {
 		return err
 	}
 
@@ -320,7 +320,7 @@ func (d Download) joinWorkers() error {
 // save ...
 func (d Download) save() error {
 	// Create directories.
-	if err := os.MkdirAll(d.FolderPath(), 0644); err != nil {
+	if err := os.MkdirAll(d.FolderPath(), 0755); err != nil {
 		return err
 	}
 
