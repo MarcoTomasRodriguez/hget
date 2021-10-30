@@ -26,7 +26,7 @@ import (
 type Download struct {
 	// ID is the task unique identifier.
 	// It is used to allow the download of many files with the same name from different sources.
-	// This field will be initialized on creation.
+	// This field will be initialized on runtime.
 	ID string `toml:"-"`
 
 	// URL represents the url from which the manager will download the file.
@@ -38,8 +38,9 @@ type Download struct {
 	// Size is the total file size in bytes.
 	Size uint64 `toml:"size"`
 
-	// IsResumable ...
-	// This field will be initialized on creation.
+	// IsResumable flags a download as resumable.
+	// If false, the download will be automatically removed on cancellation.
+	// This field will be initialized on runtime.
 	IsResumable bool `toml:"-"`
 
 	// Workers is the number of parallel connections configured for the manager.
@@ -145,6 +146,7 @@ func (d Download) Execute(ctx context.Context) error {
 	doneChannel := make(chan struct{})
 	workerProgressBars := make([]*pb.ProgressBar, len(d.Workers))
 
+	// Create download folder.
 	if err := os.MkdirAll(d.FolderPath(), 0755); err != nil {
 		return err
 	}

@@ -16,9 +16,9 @@ type Configuration struct {
 	// LogLevel restricts the logs to what the user wants to get. 0 means no logs, 1 only important logs and 2 all logs.
 	LogLevel uint8 `mapstructure:"log_level"`
 
-	// Download ...
+	// Download defines the configuration relative to a download.
 	Download struct {
-		// Folder defines the directory in which the downloaded file will be moved. Default: current execution path.
+		// Folder defines the directory in which the downloaded file will be moved.
 		Folder string `mapstructure:"folder"`
 
 		// CopyNBytes sets the bytes to copy in a row from the response body.
@@ -35,7 +35,7 @@ var Filepath string
 // Config is the shared configuration instance.
 var Config = &Configuration{}
 
-// DownloadFolder ...
+// DownloadFolder returns the path to the internal download folder.
 func (config Configuration) DownloadFolder() string {
 	return filepath.Join(config.ProgramFolder, "downloads")
 }
