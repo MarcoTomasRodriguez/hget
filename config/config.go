@@ -24,9 +24,6 @@ type Configuration struct {
 		// CopyNBytes sets the bytes to copy in a row from the response body.
 		CopyNBytes int64 `mapstructure:"copy_n_bytes"`
 
-		// UrlChecksumLength sets the length of the checksum used to prevent collisions. Maximum: 32.
-		UrlChecksumLength uint8 `mapstructure:"url_checksum_length"`
-
 		// CollisionProtection enables/disables the collision protection using a hash when saving the file to the final destination.
 		CollisionProtection bool `mapstructure:"collision_protection"`
 	}
@@ -45,10 +42,6 @@ func (config Configuration) DownloadFolder() string {
 
 // Validate validates the config.
 func (config Configuration) Validate() error {
-	if config.Download.UrlChecksumLength > 32 {
-		return fmt.Errorf("UrlChecksumLength should be between 0 and 32")
-	}
-
 	if config.Download.CopyNBytes < 0 {
 		return fmt.Errorf("CopyNBytes should be greater than 0")
 	}
@@ -80,7 +73,6 @@ func LoadConfig() {
 	viper.SetDefault("program_folder", filepath.Join(homeDir, ".hget"))
 	viper.SetDefault("download.folder", workingDir)
 	viper.SetDefault("download.copy_n_bytes", 300)
-	viper.SetDefault("download.url_checksum_length", 16)
 	viper.SetDefault("download.collision_protection", false)
 
 	// Check if config file exists.
@@ -101,6 +93,7 @@ func LoadConfig() {
 		panic(err)
 	}
 
+	// Validate configuration.
 	if err := Config.Validate(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "ERROR: invalid configuration: %v\n", err)
 		panic(err)

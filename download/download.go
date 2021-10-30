@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 
 	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/MarcoTomasRodriguez/hget/logger"
@@ -47,16 +48,6 @@ type Download struct {
 	Workers []Worker `toml:"workers"`
 }
 
-func ParseDownloadID(downloadURL string) (string, error) {
-	// Resolve download url.
-	downloadURL, err := utils.ResolveURL(downloadURL)
-	if err != nil {
-		return "", err
-	}
-
-	return utils.HashFilename(downloadURL, filepath.Base(downloadURL)), nil
-}
-
 // NewDownload ...
 func NewDownload(downloadURL string, totalWorkers uint16) (*Download, error) {
 	// Resolve download url.
@@ -83,14 +74,8 @@ func NewDownload(downloadURL string, totalWorkers uint16) (*Download, error) {
 		totalWorkers = 1
 	}
 
-	// By default, downloads are resumable.
-	isResumable := true
-
-	// If Content-size is not provided by the download server, disable the resumable feature and the progress bar.
-	if contentLengthHeader == "" {
-		isResumable = false
-		// config.ConfigOld.DisplayProgressBar = false
-	}
+	// If Content-Length is not provided by the download server, disable the resumable feature.
+	isResumable := contentLengthHeader != ""
 
 	// Extract the download name from the url.
 	downloadName := filepath.Base(downloadURL)
@@ -100,12 +85,10 @@ func NewDownload(downloadURL string, totalWorkers uint16) (*Download, error) {
 		return nil, err
 	}
 
-	// Get the internal downloadID.
-	// It is the concatenation of the first N bytes of the URL's hash and the download name.
-	downloadID, err := ParseDownloadID(downloadURL)
-	if err != nil {
-		return nil, err
-	}
+	// Generate the internal downloadID.
+	randomBytes := make([]byte, 8)
+	rand.Read(randomBytes)
+	downloadID := fmt.Sprintf("%x-%s", randomBytes, downloadName)
 
 	// Read the download size from the header.
 	downloadSize, _ := strconv.ParseUint(contentLengthHeader, 10, 64)
@@ -126,73 +109,20 @@ func NewDownload(downloadURL string, totalWorkers uint16) (*Download, error) {
 	}, nil
 }
 
-// GetDownload gets a download by his id.
-func GetDownload(downloadID string) (*Download, error) {
-	d := &Download{ID: downloadID, IsResumable: true}
-
-	// Check if download folder exists.
-	if _, err := os.Stat(d.FolderPath()); os.IsNotExist(err) {
-		return nil, utils.ErrDownloadNotExist
-	}
-
-	// Read download file.
-	downloadFile, err := ioutil.ReadFile(d.FilePath())
-	if err != nil {
-		return nil, utils.ErrDownloadBroken
-	}
-
-	// Unmarshall toml file into download struct.
-	if err := toml.Unmarshal(downloadFile, d); err != nil {
-		return nil, utils.ErrDownloadBroken
-	}
-
-	return d, nil
-}
-
-// ListDownloads lists all the saved downloads.
-func ListDownloads() ([]*Download, error) {
-	var downloads []*Download
-
-	// List elements inside the internal downloads' directory.
-	downloadFolders, err := ioutil.ReadDir(config.Config.DownloadFolder())
-	if err != nil {
-		return nil, err
-	}
-
-	// Iterate over the elements inside the task folder, and append to the downloads array if valid.
-	for _, downloadFolder := range downloadFolders {
-		// A valid task should be located inside a directory.
-		if downloadFolder.IsDir() {
-			download, _ := GetDownload(downloadFolder.Name())
-
-			if download != nil {
-				downloads = append(downloads, download)
-			}
-		}
-	}
-
-	return downloads, nil
-}
-
-// DeleteDownload removes the download folder.
-func DeleteDownload(downloadID string) error {
-	return os.RemoveAll(filepath.Join(config.Config.DownloadFolder(), downloadID))
-}
-
-// String ...
+// String returns a pretty string with the download's information.
 func (d Download) String() string {
 	return fmt.Sprintln(" ⁕ ", color.HiCyanString(d.ID), " ⇒ ", color.HiCyanString("URL:"), d.URL, color.HiCyanString("Size:"), utils.ReadableMemorySize(d.Size))
 }
 
-// Writer ...
+// Writer opens the output file in write-only mode.
 func (d Download) Writer() (io.WriteCloser, error) {
 	return os.OpenFile(d.OutputFilePath(), os.O_CREATE|os.O_WRONLY, 0644)
 }
 
-// OutputFilePath ...
+// OutputFilePath returns the path of the download output.
 func (d Download) OutputFilePath() string {
 	if config.Config.Download.CollisionProtection {
-		return filepath.Join(config.Config.Download.Folder, utils.HashFilename(d.URL, d.Name))
+		return filepath.Join(config.Config.Download.Folder, d.ID)
 	}
 
 	return filepath.Join(config.Config.Download.Folder, d.Name)
@@ -224,8 +154,16 @@ func (d Download) Execute(ctx context.Context) error {
 
 		// Start download Workers.
 		for i, w := range d.Workers {
+			// Calculate bytes left to download.
+			currentSize := w.CurrentSize()
+			downloadSize := w.DownloadSize()
+			bytesLeft := int64(0)
+			if downloadSize > currentSize {
+				bytesLeft = int64(downloadSize - currentSize)
+			}
+
 			// Setup progress bar.
-			bar := pb.New64(int64(w.RangeTo - w.RangeFrom - w.Size())).SetUnits(pb.U_BYTES).Prefix(
+			bar := pb.New64(bytesLeft).SetUnits(pb.U_BYTES).Prefix(
 				color.CyanString(fmt.Sprintf("Worker #%d", w.Index)),
 			)
 
@@ -323,20 +261,15 @@ func (d Download) joinWorkers() error {
 	return nil
 }
 
-// save ...
+// save saves the download struct as a toml file.
 func (d Download) save() error {
-	// Create directories.
-	if err := os.MkdirAll(d.FolderPath(), 0755); err != nil {
-		return err
-	}
-
 	// Parse download struct as toml.
 	downloadToml, err := toml.Marshal(d)
 	if err != nil {
 		return err
 	}
 
-	// Save download as toml.
+	// Save download as a toml file.
 	if err := ioutil.WriteFile(d.FilePath(), downloadToml, 0644); err != nil {
 		return err
 	}
@@ -345,7 +278,7 @@ func (d Download) save() error {
 	return nil
 }
 
-// finish ...
+// finish joins the download workers and removes the associated internal files.
 func (d Download) finish() error {
 	// Join Workers.
 	if err := d.joinWorkers(); err != nil {
@@ -359,4 +292,57 @@ func (d Download) finish() error {
 
 	logger.LogInfo("Download saved in %s.", d.OutputFilePath())
 	return nil
+}
+
+// GetDownload gets a download by his id.
+func GetDownload(downloadID string) (*Download, error) {
+	d := &Download{ID: downloadID, IsResumable: true}
+
+	// Check if download folder exists.
+	if _, err := os.Stat(d.FolderPath()); os.IsNotExist(err) {
+		return nil, utils.ErrDownloadNotExist
+	}
+
+	// Read download file.
+	downloadFile, err := ioutil.ReadFile(d.FilePath())
+	if err != nil {
+		return nil, utils.ErrDownloadBroken
+	}
+
+	// Unmarshall toml file into download struct.
+	if err := toml.Unmarshal(downloadFile, d); err != nil {
+		return nil, utils.ErrDownloadBroken
+	}
+
+	return d, nil
+}
+
+// ListDownloads lists all the saved downloads.
+func ListDownloads() ([]*Download, error) {
+	var downloads []*Download
+
+	// List elements inside the internal downloads' directory.
+	downloadFolders, err := ioutil.ReadDir(config.Config.DownloadFolder())
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate over the elements inside the task folder, and append to the downloads array if valid.
+	for _, downloadFolder := range downloadFolders {
+		// A valid task should be located inside a directory.
+		if downloadFolder.IsDir() {
+			download, _ := GetDownload(downloadFolder.Name())
+
+			if download != nil {
+				downloads = append(downloads, download)
+			}
+		}
+	}
+
+	return downloads, nil
+}
+
+// DeleteDownload removes the download folder.
+func DeleteDownload(downloadID string) error {
+	return os.RemoveAll(filepath.Join(config.Config.DownloadFolder(), downloadID))
 }

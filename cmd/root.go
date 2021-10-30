@@ -1,11 +1,11 @@
 package cmd
 
 import (
-	"errors"
+	"math/rand"
+	"time"
 
 	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/MarcoTomasRodriguez/hget/download"
-	"github.com/MarcoTomasRodriguez/hget/logger"
 
 	// "github.com/MarcoTomasRodriguez/hget/logger"
 	"os"
@@ -32,17 +32,7 @@ download threads and to stop and resume tasks.
 		ctx := utils.ConsoleCancelableContext()
 
 		workers, _ := cmd.Flags().GetUint16("workers")
-		downloadID, _ := download.ParseDownloadID(args[0])
-		d, err := download.GetDownload(downloadID)
-
-		if errors.Is(err, utils.ErrDownloadBroken) {
-			logger.LogError("Download is broken, and thus will be removed.")
-			_ = download.DeleteDownload(downloadID)
-		}
-
-		if d == nil {
-			d, _ = download.NewDownload(args[0], workers)
-		}
+		d, _ := download.NewDownload(args[0], workers)
 
 		d.Execute(ctx)
 	},
@@ -55,6 +45,9 @@ func Execute() {
 }
 
 func init() {
+	// Seed math/rand.
+	rand.Seed(time.Now().UnixNano())
+
 	// Initialize config.
 	cobra.OnInitialize(config.LoadConfig)
 

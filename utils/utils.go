@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,8 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/MarcoTomasRodriguez/hget/config"
 )
 
 const (
@@ -43,15 +40,6 @@ func ConsoleCancelableContext() context.Context {
 	}()
 
 	return ctx
-}
-
-// HashFilename generates a hashed filename using the first N bytes of the rawURL checksum and the filename.
-func HashFilename(url string, filename string) string {
-	// Obtain the first N bytes from the rawURL checksum.
-	urlChecksum := fmt.Sprintf("%x", sha256.Sum256([]byte(url)))[:config.Config.Download.UrlChecksumLength]
-
-	// Concatenate checksum and basename.
-	return urlChecksum + "-" + filename
 }
 
 // CheckFilenameValidity checks if a filename is valid. If it is not, returns an error.

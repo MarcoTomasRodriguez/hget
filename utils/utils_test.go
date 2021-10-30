@@ -4,28 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MarcoTomasRodriguez/hget/config"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestHashFilename(t *testing.T) {
-	config.Config.Download.UrlChecksumLength = 16
-
-	cases := []struct {
-		url      string
-		filename string
-		expected string
-	}{
-		{"localhost", "index.html", "49960de5880e8c68-index.html"},
-		{"localhost/my-file.file", "my-file.file", "9832caf176bed618-my-file.file"},
-	}
-
-	for _, v := range cases {
-		t.Run(v.expected, func(t *testing.T) {
-			assert.Equal(t, v.expected, HashFilename(v.url, v.filename))
-		})
-	}
-}
 
 func TestCheckFilenameValidity_Valid(t *testing.T) {
 	cases := []struct {

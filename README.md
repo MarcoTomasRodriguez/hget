@@ -39,7 +39,7 @@ Other features of this software are,
 
 1. Interruptible downloads: press <kbd>Ctrl</kbd> + <kbd>C</kbd> or <kbd>⌘</kbd> + <kbd>C</kbd> and the download will stop gracefully.
 2. Resumable downloads: use `hget resume ID` to resume an interrupted download.
-3. Prevent file collision: enable the collision protection in the configuration and downloads with the same name but coming from different URLs will not collide (a hash is included before the filename).
+3. Prevent file collision: enable the collision protection in the configuration and downloads with the same name will not collide (a random string is included before the filename).
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -106,10 +106,7 @@ download.folder = "$PWD" # This will not work. Write an absolute path instead.
 # Sets the bytes to copy in a row from the response body.
 download.copy_n_bytes = 300
 
-# Sets the length of the checksum used to prevent collisions. Maximum: 32.
-download.url_checksum_length = 16
-
-# Enables/disables the collision protection using a hash when saving the file to the final destination.
+# Enables/disables the collision protection using a random string when saving the file to the final destination.
 download.collision_protection = false
 ```
 

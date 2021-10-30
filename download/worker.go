@@ -21,8 +21,8 @@ type Worker struct {
 	// DownloadID ...
 	DownloadID string `toml:"download_id"`
 
-	// URL ...
-	URL string `toml:"url"`
+	// DownloadURL ...
+	DownloadURL string `toml:"download_url"`
 
 	// RangeFrom ...
 	RangeFrom uint64 `toml:"range_from"`
@@ -45,29 +45,36 @@ func NewWorker(workerIndex uint16, totalWorkers uint16, downloadId string, downl
 	}
 
 	return Worker{
-		Index:      workerIndex,
-		DownloadID: downloadId,
-		RangeFrom:  rangeFrom,
-		RangeTo:    rangeTo,
-		URL:        downloadURL,
+		Index:       workerIndex,
+		DownloadID:  downloadId,
+		RangeFrom:   rangeFrom,
+		RangeTo:     rangeTo,
+		DownloadURL: downloadURL,
 	}
 }
 
-func (w Worker) Reader() (io.ReadCloser, error) {
-	return os.OpenFile(w.FilePath(), os.O_RDONLY, 0644)
-}
-
-func (w Worker) Writer() (io.WriteCloser, error) {
-	return os.OpenFile(w.FilePath(), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-}
-
-// FilePath ...
+// FilePath returns the worker file path.
 func (w Worker) FilePath() string {
 	return filepath.Join(config.Config.DownloadFolder(), w.DownloadID, fmt.Sprintf("worker.%05d", w.Index))
 }
 
-// Size ...
-func (w Worker) Size() uint64 {
+// Reader opens the worker file in read-only mode.
+func (w Worker) Reader() (io.ReadCloser, error) {
+	return os.OpenFile(w.FilePath(), os.O_RDONLY, 0644)
+}
+
+// Writer opens the worker file in append-write-only mode.
+func (w Worker) Writer() (io.WriteCloser, error) {
+	return os.OpenFile(w.FilePath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+}
+
+// DownloadSize calculates the difference between the maximum and minimum range.
+func (w Worker) DownloadSize() uint64 {
+	return w.RangeTo - w.RangeFrom
+}
+
+// CurrentSize returns the size of the worker file.
+func (w Worker) CurrentSize() uint64 {
 	fileInfo, err := os.Stat(w.FilePath())
 	if err != nil {
 		return 0
@@ -76,10 +83,11 @@ func (w Worker) Size() uint64 {
 	return uint64(fileInfo.Size())
 }
 
-// Execute ...
+// Execute starts the download of the file slice.
+// This operation is blocking and must be called inside a goroutine.
 func (w Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 	// Compute current range from (defined start + worker file size).
-	currentRangeFrom := w.RangeFrom + w.Size()
+	currentRangeFrom := w.RangeFrom + w.CurrentSize()
 
 	// Create worker file.
 	workerWriter, err := w.Writer()
@@ -91,7 +99,7 @@ func (w Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 	defer workerWriter.Close()
 
 	// Send request.
-	httpRequest, err := http.NewRequest("GET", w.URL, nil)
+	httpRequest, err := http.NewRequest("GET", w.DownloadURL, nil)
 	if err != nil {
 		return err
 	}
