@@ -78,9 +78,6 @@ func (w Worker) Size() uint64 {
 
 // Execute ...
 func (w Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
-	// Finish progress bar on exit.
-	defer bar.Finish()
-
 	// Compute current range from (defined start + worker file size).
 	currentRangeFrom := w.RangeFrom + w.Size()
 

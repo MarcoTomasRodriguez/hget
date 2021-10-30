@@ -30,8 +30,7 @@ $ hget resume 01cc0f0a3d94af18-file1.txt`,
 			logger.LogError("Download is broken, and thus will be removed.")
 			_ = download.DeleteDownload(args[0])
 		default:
-			err := d.Execute(ctx)
-			logger.LogError(err.Error())
+			d.Execute(ctx)
 		}
 	},
 }

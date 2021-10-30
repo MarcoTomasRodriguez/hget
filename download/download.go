@@ -2,6 +2,7 @@ package download
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -69,6 +70,8 @@ func NewDownload(downloadURL string, totalWorkers uint16) (*Download, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	defer httpResponse.Body.Close()
 
 	// Get response headers.
 	contentLengthHeader := httpResponse.Header.Get("Content-Length")
@@ -229,14 +232,17 @@ func (d Download) Execute(ctx context.Context) error {
 			// Add worker to wait group.
 			waitGroup.Add(1)
 
-			go func() {
+			go func(w Worker, bar *pb.ProgressBar) {
+				// Finish progress bar on exit.
+				defer bar.Finish()
+
 				// When the worker finished its execution remove it from wait group.
 				defer waitGroup.Done()
 
 				if err := w.Execute(ctx, bar); err != nil {
 					errorChannel <- err
 				}
-			}()
+			}(w, bar)
 
 			workerProgressBars[i] = bar
 		}
@@ -244,28 +250,28 @@ func (d Download) Execute(ctx context.Context) error {
 		// Setup progress bar pool.
 		barPool, _ := pb.StartPool(workerProgressBars...)
 
-		// Stop progress bar pool on exit.
-		defer func() {
-			_ = barPool.Stop()
-		}()
-
 		// Wait until the last worker has finished his download.
 		waitGroup.Wait()
+
+		// Stop the progress bar pool.
+		barPool.Stop()
 
 		doneChannel <- struct{}{}
 	}(ctx)
 
 	for {
 		select {
-		case <-ctx.Done():
-			// If download was interrupted, and it is NOT resumable, then delete it.
-			if !d.IsResumable {
-				return DeleteDownload(d.ID)
+		case <-doneChannel:
+			if errors.Is(ctx.Err(), context.Canceled) {
+				// If download was interrupted, and it is NOT resumable, then delete it.
+				if !d.IsResumable {
+					return DeleteDownload(d.ID)
+				}
+
+				// If download was interrupted, and it is resumable, then save it.
+				return d.save()
 			}
 
-			// If download was interrupted, and it is resumable, then save it.
-			return d.save()
-		case <-doneChannel:
 			return d.finish()
 		case err := <-errorChannel:
 			return err
