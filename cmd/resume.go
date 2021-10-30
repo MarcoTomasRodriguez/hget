@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"errors"
+
 	"github.com/MarcoTomasRodriguez/hget/download"
 	"github.com/MarcoTomasRodriguez/hget/logger"
 	"github.com/MarcoTomasRodriguez/hget/utils"
@@ -21,16 +23,23 @@ $ hget resume 01cc0f0a3d94af18-file1.txt`,
 		// Create application context.
 		ctx := utils.ConsoleCancelableContext()
 
+		// Read download file.
 		d, err := download.GetDownload(args[0])
 
-		switch err {
-		case utils.ErrDownloadNotExist:
+		if err == nil {
+			if err := d.Execute(ctx); err != nil {
+				logger.LogError("An error ocurred while downloading: %v", err)
+			}
+		} else if errors.Is(err, utils.ErrDownloadNotExist) {
 			logger.LogError("Download does not exist.")
-		case utils.ErrDownloadBroken:
+		} else if errors.Is(err, utils.ErrDownloadBroken) {
 			logger.LogError("Download is broken, and thus will be removed.")
-			_ = download.DeleteDownload(args[0])
-		default:
-			d.Execute(ctx)
+
+			if err := download.DeleteDownload(args[0]); err != nil {
+				logger.LogError("Could not delete saved download: %v", err)
+			}
+		} else {
+			logger.LogError("Unknown error: %v", err)
 		}
 	},
 }

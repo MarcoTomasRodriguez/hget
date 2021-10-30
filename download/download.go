@@ -309,7 +309,7 @@ func GetDownload(downloadID string) (*Download, error) {
 		return nil, utils.ErrDownloadBroken
 	}
 
-	// Unmarshall toml file into download struct.
+	// Unmarshal toml file into download struct.
 	if err := toml.Unmarshal(downloadFile, d); err != nil {
 		return nil, utils.ErrDownloadBroken
 	}
