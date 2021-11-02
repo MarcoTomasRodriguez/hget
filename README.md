@@ -2,7 +2,7 @@
 
 <div align="center">
   <a href="https://github.com/marcotomasrodriguez/hget">
-    <img src="assets/logo.svg" alt="Logo" width="80" height="80">
+    <img src="https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/svg/logo.svg" alt="Logo" width="80" height="80">
   </a>
   <h2 align="center">hget</h2>
   <p align="center">
@@ -53,7 +53,7 @@ hget [-n workers] URL
 
 `-n` Download workers (Default: CPUs).
 
-![Download demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gifs/download.gif)
+![Download demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gif/root.gif)
 
 ### List
 
@@ -61,7 +61,7 @@ hget [-n workers] URL
 hget list
 ```
 
-![List demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gifs/list.gif)
+![List demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gif/list.gif)
 
 ### Resume
 
@@ -69,7 +69,7 @@ hget list
 hget resume ID
 ```
 
-![Resume demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gifs/resume.gif)
+![Resume demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gif/resume.gif)
 
 ### Remove
 
@@ -77,7 +77,7 @@ hget resume ID
 hget remove ID
 ```
 
-![Remove demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gifs/remove.gif)
+![Remove demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gif/remove.gif)
 
 ### Clear
 
@@ -85,7 +85,7 @@ hget remove ID
 hget clear
 ```
 
-![Clear demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gifs/clear.gif)
+![Clear demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gif/clear.gif)
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
