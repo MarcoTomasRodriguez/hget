@@ -22,7 +22,7 @@ import (
 	"github.com/pelletier/go-toml"
 )
 
-// Download ...
+// Download stores the information relative to a download, including the workers.
 type Download struct {
 	// ID is the task unique identifier.
 	// It is used to allow the download of many files with the same name from different sources.
@@ -49,7 +49,7 @@ type Download struct {
 	Workers []Worker `toml:"workers"`
 }
 
-// NewDownload ...
+// NewDownload fetches the download url, obtains all the information required to start a download and finally returns the download struct.
 func NewDownload(downloadURL string, totalWorkers uint16) (*Download, error) {
 	// Resolve download url.
 	downloadURL, err := utils.ResolveURL(downloadURL)
@@ -139,7 +139,7 @@ func (d Download) FilePath() string {
 	return filepath.Join(d.FolderPath(), "download.toml")
 }
 
-// Execute ...
+// Execute
 func (d Download) Execute(ctx context.Context) error {
 	// Initialize uplink channels.
 	errorChannel := make(chan error)

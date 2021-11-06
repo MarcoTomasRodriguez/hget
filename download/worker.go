@@ -13,25 +13,26 @@ import (
 	"github.com/cheggaaa/pb"
 )
 
-// Worker ...
+// Worker represents a goroutine in charge of downloading a file part/segment.
 type Worker struct {
-	// Index ...
+	// Index is the index of the worker.
+	// During the merge process, the worker downloads will be concatenated using this index.
 	Index uint16 `toml:"index"`
 
-	// DownloadID ...
+	// DownloadID stores the id of the download.
 	DownloadID string `toml:"download_id"`
 
-	// DownloadURL ...
+	// DownloadURL stores the url of the download.
 	DownloadURL string `toml:"download_url"`
 
-	// RangeFrom ...
+	// RangeFrom is the start point of the worker download.
 	RangeFrom uint64 `toml:"range_from"`
 
-	// RangeTo ...
+	// RangeTo is the end position of the worker download.
 	RangeTo uint64 `toml:"range_to"`
 }
 
-// NewWorker ...
+// NewWorker computes the start & end point of the worker download and returns a new worker.
 func NewWorker(workerIndex uint16, totalWorkers uint16, downloadId string, downloadURL string, downloadSize uint64) Worker {
 	// Calculate beginning of range.
 	rangeFrom := (downloadSize / uint64(totalWorkers)) * uint64(workerIndex)
