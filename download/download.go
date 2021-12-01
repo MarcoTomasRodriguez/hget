@@ -139,7 +139,8 @@ func (d Download) FilePath() string {
 	return filepath.Join(d.FolderPath(), "download.toml")
 }
 
-// Execute
+// Execute downloads the specified file.
+// This operation blocks the execution until it finishes or is cancelled by the context.
 func (d Download) Execute(ctx context.Context) error {
 	// Initialize uplink channels.
 	errorChannel := make(chan error)
