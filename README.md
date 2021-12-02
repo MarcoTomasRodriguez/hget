@@ -43,6 +43,18 @@ Other features of this software are,
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
+## Installation
+
+### Using Go
+
+```bash
+go install github.com/MarcoTomasRodriguez/hget
+```
+
+### Binary
+
+Precompiled binaries for Linux and MacOS are available at https://github.com/MarcoTomasRodriguez/hget/releases.
+
 ## Usage
 
 ### Download
