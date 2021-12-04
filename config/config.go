@@ -36,12 +36,12 @@ var Filepath string
 var Config = &Configuration{}
 
 // DownloadFolder returns the path to the internal download folder.
-func (config Configuration) DownloadFolder() string {
+func (config *Configuration) DownloadFolder() string {
 	return filepath.Join(config.ProgramFolder, "downloads")
 }
 
 // Validate validates the config.
-func (config Configuration) Validate() error {
+func (config *Configuration) Validate() error {
 	if config.Download.CopyNBytes < 0 {
 		return fmt.Errorf("CopyNBytes should be greater than 0")
 	}
