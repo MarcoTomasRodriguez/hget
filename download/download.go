@@ -46,7 +46,7 @@ type Download struct {
 	// Workers is the number of parallel connections configured for the manager.
 	// Initially it is set by the user, but falls to 1 if the server does not accept range or does not provide a
 	// content length.
-	Workers []Worker `toml:"workers"`
+	Workers []*Worker `toml:"workers"`
 }
 
 // NewDownload fetches the download url, obtains all the information required to start a download and finally returns the download struct.
@@ -95,7 +95,7 @@ func NewDownload(downloadURL string, totalWorkers uint16) (*Download, error) {
 	downloadSize, _ := strconv.ParseUint(contentLengthHeader, 10, 64)
 
 	// Create download Workers.
-	workers := make([]Worker, totalWorkers)
+	workers := make([]*Worker, totalWorkers)
 	for i := range workers {
 		workers[i] = NewWorker(uint16(i), totalWorkers, downloadID, downloadURL, downloadSize)
 	}
@@ -111,17 +111,17 @@ func NewDownload(downloadURL string, totalWorkers uint16) (*Download, error) {
 }
 
 // String returns a pretty string with the download's information.
-func (d Download) String() string {
+func (d *Download) String() string {
 	return fmt.Sprintln(" ⁕ ", color.HiCyanString(d.ID), " ⇒ ", color.HiCyanString("URL:"), d.URL, color.HiCyanString("Size:"), utils.ReadableMemorySize(d.Size))
 }
 
 // Writer opens the output file in write-only mode.
-func (d Download) Writer() (io.WriteCloser, error) {
+func (d *Download) Writer() (io.WriteCloser, error) {
 	return os.OpenFile(d.OutputFilePath(), os.O_CREATE|os.O_WRONLY, 0644)
 }
 
 // OutputFilePath returns the path of the download output.
-func (d Download) OutputFilePath() string {
+func (d *Download) OutputFilePath() string {
 	if config.Config.Download.CollisionProtection {
 		return filepath.Join(config.Config.Download.Folder, d.ID)
 	}
@@ -130,18 +130,18 @@ func (d Download) OutputFilePath() string {
 }
 
 // FolderPath gets the path to the download folder.
-func (d Download) FolderPath() string {
+func (d *Download) FolderPath() string {
 	return filepath.Join(config.Config.DownloadFolder(), d.ID)
 }
 
 // FilePath gets the path to the download TOML file.
-func (d Download) FilePath() string {
+func (d *Download) FilePath() string {
 	return filepath.Join(d.FolderPath(), "download.toml")
 }
 
 // Execute downloads the specified file.
 // This operation blocks the execution until it finishes or is cancelled by the context.
-func (d Download) Execute(ctx context.Context) error {
+func (d *Download) Execute(ctx context.Context) error {
 	// Initialize uplink channels.
 	errorChannel := make(chan error)
 	doneChannel := make(chan struct{})
@@ -173,12 +173,19 @@ func (d Download) Execute(ctx context.Context) error {
 			// Add worker to wait group.
 			waitGroup.Add(1)
 
-			go func(w Worker, bar *pb.ProgressBar) {
+			go func(w *Worker, bar *pb.ProgressBar) {
 				// Finish progress bar on exit.
 				defer bar.Finish()
 
 				// When the worker finished its execution remove it from wait group.
 				defer waitGroup.Done()
+
+				// Recover from panic.
+				defer func() {
+					if r := recover(); r != nil {
+						errorChannel <- fmt.Errorf("Worker panic: %v", r)
+					}
+				}()
 
 				if err := w.Execute(ctx, bar); err != nil {
 					errorChannel <- err
@@ -204,24 +211,24 @@ func (d Download) Execute(ctx context.Context) error {
 		select {
 		case <-doneChannel:
 			if errors.Is(ctx.Err(), context.Canceled) {
-				// If download was interrupted, and it is NOT resumable, then delete it.
-				if !d.IsResumable {
-					return DeleteDownload(d.ID)
-				}
-
-				// If download was interrupted, and it is resumable, then save it.
-				return d.save()
+				// Attempt to save the download.
+				return d.attemptSave()
 			}
 
 			return d.finish()
 		case err := <-errorChannel:
+			// Attempt to save the download.
+			if err := d.attemptSave(); err != nil {
+				logger.LogError("Could not save download: %v", err)
+			}
+
 			return err
 		}
 	}
 }
 
 // joinWorkers joins the worker files into the output file.
-func (d Download) joinWorkers() error {
+func (d *Download) joinWorkers() error {
 	// Open output file.
 	downloadWriter, err := d.Writer()
 	if err != nil {
@@ -264,8 +271,19 @@ func (d Download) joinWorkers() error {
 	return nil
 }
 
+// attemptSave saves the download struct as a toml file if it is resumable, otherwise it deletes it.
+func (d *Download) attemptSave() error {
+	// If download is not resumable, delete it.
+	if !d.IsResumable {
+		return DeleteDownload(d.ID)
+	}
+
+	// Otherwise save it.
+	return d.save()
+}
+
 // save saves the download struct as a toml file.
-func (d Download) save() error {
+func (d *Download) save() error {
 	// Parse download struct as toml.
 	downloadToml, err := toml.Marshal(d)
 	if err != nil {
@@ -282,7 +300,7 @@ func (d Download) save() error {
 }
 
 // finish joins the download workers and removes the associated internal files.
-func (d Download) finish() error {
+func (d *Download) finish() error {
 	// Join Workers.
 	if err := d.joinWorkers(); err != nil {
 		return err

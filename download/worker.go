@@ -33,7 +33,7 @@ type Worker struct {
 }
 
 // NewWorker computes the start & end point of the worker download and returns a new worker.
-func NewWorker(workerIndex uint16, totalWorkers uint16, downloadId string, downloadURL string, downloadSize uint64) Worker {
+func NewWorker(workerIndex uint16, totalWorkers uint16, downloadId string, downloadURL string, downloadSize uint64) *Worker {
 	// Calculate beginning of range.
 	rangeFrom := (downloadSize / uint64(totalWorkers)) * uint64(workerIndex)
 
@@ -45,7 +45,7 @@ func NewWorker(workerIndex uint16, totalWorkers uint16, downloadId string, downl
 		rangeTo = (downloadSize/uint64(totalWorkers))*(uint64(workerIndex)+1) - 1
 	}
 
-	return Worker{
+	return &Worker{
 		Index:       workerIndex,
 		DownloadID:  downloadId,
 		RangeFrom:   rangeFrom,
@@ -55,27 +55,27 @@ func NewWorker(workerIndex uint16, totalWorkers uint16, downloadId string, downl
 }
 
 // FilePath returns the worker file path.
-func (w Worker) FilePath() string {
+func (w *Worker) FilePath() string {
 	return filepath.Join(config.Config.DownloadFolder(), w.DownloadID, fmt.Sprintf("worker.%05d", w.Index))
 }
 
 // Reader opens the worker file in read-only mode.
-func (w Worker) Reader() (io.ReadCloser, error) {
+func (w *Worker) Reader() (io.ReadCloser, error) {
 	return os.OpenFile(w.FilePath(), os.O_RDONLY, 0644)
 }
 
 // Writer opens the worker file in append-write-only mode.
-func (w Worker) Writer() (io.WriteCloser, error) {
+func (w *Worker) Writer() (io.WriteCloser, error) {
 	return os.OpenFile(w.FilePath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 }
 
 // DownloadSize calculates the difference between the maximum and minimum range.
-func (w Worker) DownloadSize() uint64 {
+func (w *Worker) DownloadSize() uint64 {
 	return w.RangeTo - w.RangeFrom
 }
 
 // CurrentSize returns the size of the worker file.
-func (w Worker) CurrentSize() uint64 {
+func (w *Worker) CurrentSize() uint64 {
 	fileInfo, err := os.Stat(w.FilePath())
 	if err != nil {
 		return 0
@@ -86,7 +86,7 @@ func (w Worker) CurrentSize() uint64 {
 
 // Execute starts the download of the file slice.
 // This operation is blocking and must be called inside a goroutine.
-func (w Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
+func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 	// Compute current range from (defined start + worker file size).
 	currentRangeFrom := w.RangeFrom + w.CurrentSize()
 
