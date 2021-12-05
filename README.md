@@ -48,12 +48,14 @@ Other features of this software are,
 ### Using Go
 
 ```bash
-go install github.com/MarcoTomasRodriguez/hget
+go install github.com/MarcoTomasRodriguez/hget@latest
 ```
 
 ### Binary
 
 Precompiled binaries for Linux and MacOS are available at https://github.com/MarcoTomasRodriguez/hget/releases.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
 
 ## Usage
 
