@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Configuration defines the behavior of the application.
+// Configuration defines the behaviour of the application.
 type Configuration struct {
 	// ProgramFolder is the folder used by the program to save temporal files, such as ongoing and paused downloads.
 	ProgramFolder string `mapstructure:"program_folder"`
