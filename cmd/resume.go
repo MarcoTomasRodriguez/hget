@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 
 	"github.com/MarcoTomasRodriguez/hget/internal/download"
@@ -21,7 +22,7 @@ $ hget resume 01cc0f0a3d94af18-file1.txt`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Create application context.
-		ctx := console.CancelableContext()
+		ctx := console.CancelableContext(context.Background())
 
 		// Read download file.
 		d, err := download.GetDownload(args[0])

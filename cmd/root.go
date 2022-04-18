@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"math/rand"
 	"time"
 
@@ -29,7 +30,7 @@ download threads and to stop and resume tasks.
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Create application context.
-		ctx := console.CancelableContext()
+		ctx := console.CancelableContext(context.Background())
 
 		// Get number of workers from flags.
 		workers, err := cmd.Flags().GetUint16("workers")

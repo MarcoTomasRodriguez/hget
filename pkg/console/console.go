@@ -9,8 +9,9 @@ import (
 
 // CancelableContext creates a context that can be canceled from the console.
 // For example, by typing Ctrl + C.
-func CancelableContext() context.Context {
-	ctx, cancel := context.WithCancel(context.Background())
+func CancelableContext(ctx context.Context) context.Context {
+	ctx, cancel := context.WithCancel(ctx)
+
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
