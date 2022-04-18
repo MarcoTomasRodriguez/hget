@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"github.com/MarcoTomasRodriguez/hget/download"
-	"github.com/MarcoTomasRodriguez/hget/logger"
+	"github.com/MarcoTomasRodriguez/hget/internal/download"
+	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -20,11 +20,11 @@ INFO: download removed successfully.
 	Run: func(cmd *cobra.Command, args []string) {
 		// Remove download.
 		if err := download.DeleteDownload(args[0]); err != nil {
-			logger.LogError("Could not remove download: %v", err)
+			logger.Error("Could not remove download: %v", err)
 			return
 		}
 
-		logger.LogInfo("Download removed successfully.")
+		logger.Info("Download removed successfully.")
 	},
 }
 

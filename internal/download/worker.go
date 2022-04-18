@@ -3,14 +3,13 @@ package download
 import (
 	"context"
 	"fmt"
+	"github.com/cheggaaa/pb"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 
-	"github.com/MarcoTomasRodriguez/hget/config"
-	"github.com/MarcoTomasRodriguez/hget/utils"
-	"github.com/cheggaaa/pb"
+	"github.com/MarcoTomasRodriguez/hget/internal/config"
 )
 
 // Worker represents a goroutine in charge of downloading a file part/segment.
@@ -54,44 +53,14 @@ func NewWorker(workerIndex uint16, totalWorkers uint16, downloadId string, downl
 	}
 }
 
-// FilePath returns the worker file path.
-func (w *Worker) FilePath() string {
-	return filepath.Join(config.Config.DownloadFolder(), w.DownloadID, fmt.Sprintf("worker.%05d", w.Index))
-}
-
-// Reader opens the worker file in read-only mode.
-func (w *Worker) Reader() (io.ReadCloser, error) {
-	return os.OpenFile(w.FilePath(), os.O_RDONLY, 0644)
-}
-
-// Writer opens the worker file in append-write-only mode.
-func (w *Worker) Writer() (io.WriteCloser, error) {
-	return os.OpenFile(w.FilePath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-}
-
-// DownloadSize calculates the difference between the maximum and minimum range.
-func (w *Worker) DownloadSize() uint64 {
-	return w.RangeTo - w.RangeFrom
-}
-
-// CurrentSize returns the size of the worker file.
-func (w *Worker) CurrentSize() uint64 {
-	fileInfo, err := os.Stat(w.FilePath())
-	if err != nil {
-		return 0
-	}
-
-	return uint64(fileInfo.Size())
-}
-
 // Execute starts the download of the file slice.
 // This operation is blocking and must be called inside a goroutine.
 func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 	// Compute current range from (defined start + worker file size).
-	currentRangeFrom := w.RangeFrom + w.CurrentSize()
+	currentRangeFrom := w.RangeFrom + w.currentSize()
 
 	// Create worker file.
-	workerWriter, err := w.Writer()
+	workerWriter, err := w.writer()
 	if err != nil {
 		return err
 	}
@@ -114,7 +83,7 @@ func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 	httpRequest.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", currentRangeFrom, w.RangeTo))
 
 	// Execute get request with range header.
-	httpResponse, err := utils.HTTPClient.Do(httpRequest)
+	httpResponse, err := httpClient.Do(httpRequest)
 	if err != nil {
 		return err
 	}
@@ -141,4 +110,34 @@ func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 			}
 		}
 	}
+}
+
+// filePath returns the worker file path.
+func (w *Worker) filePath() string {
+	return filepath.Join(config.Config.DownloadFolder(), w.DownloadID, fmt.Sprintf("worker.%05d", w.Index))
+}
+
+// reader opens the worker file in read-only mode.
+func (w *Worker) reader() (io.ReadCloser, error) {
+	return os.OpenFile(w.filePath(), os.O_RDONLY, 0644)
+}
+
+// writer opens the worker file in append-write-only mode.
+func (w *Worker) writer() (io.WriteCloser, error) {
+	return os.OpenFile(w.filePath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+}
+
+// downloadSize calculates the difference between the maximum and minimum range.
+func (w *Worker) downloadSize() uint64 {
+	return w.RangeTo - w.RangeFrom
+}
+
+// currentSize returns the size of the worker file.
+func (w *Worker) currentSize() uint64 {
+	fileInfo, err := os.Stat(w.filePath())
+	if err != nil {
+		return 0
+	}
+
+	return uint64(fileInfo.Size())
 }

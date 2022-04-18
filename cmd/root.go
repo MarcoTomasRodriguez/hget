@@ -4,15 +4,15 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/MarcoTomasRodriguez/hget/config"
-	"github.com/MarcoTomasRodriguez/hget/download"
-	"github.com/MarcoTomasRodriguez/hget/logger"
+	"github.com/MarcoTomasRodriguez/hget/internal/config"
+	"github.com/MarcoTomasRodriguez/hget/internal/download"
+	"github.com/MarcoTomasRodriguez/hget/pkg/console"
+	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
 
 	"os"
 	"path/filepath"
 	"runtime"
 
-	"github.com/MarcoTomasRodriguez/hget/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -29,24 +29,24 @@ download threads and to stop and resume tasks.
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Create application context.
-		ctx := utils.ConsoleCancelableContext()
+		ctx := console.CancelableContext()
 
 		// Get number of workers from flags.
 		workers, err := cmd.Flags().GetUint16("workers")
 		if err != nil {
-			logger.LogError("Could not get number of workers from flags.")
+			logger.Error("Could not get number of workers from flags.")
 			return
 		}
 
 		// Start download.
 		d, err := download.NewDownload(args[0], workers)
 		if err != nil {
-			logger.LogError("Could not start download: %v", err)
+			logger.Error("Could not start download: %v", err)
 			return
 		}
 
 		if err := d.Execute(ctx); err != nil {
-			logger.LogError("An error ocurred while downloading: %v", err)
+			logger.Error("An error occurred while downloading: %v", err)
 		}
 	},
 }

@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"github.com/MarcoTomasRodriguez/hget/download"
-	"github.com/MarcoTomasRodriguez/hget/logger"
+	"github.com/MarcoTomasRodriguez/hget/internal/download"
+	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -21,13 +21,13 @@ INFO: Removed downloads:
 		// List downloads.
 		downloads, err := download.ListDownloads()
 		if err != nil {
-			logger.LogError("Could not list downloads: %v", err)
+			logger.Error("Could not list downloads: %v", err)
 			return
 		}
 
 		// Check if there are no saved downloads.
 		if len(downloads) == 0 {
-			logger.LogInfo("There are no downloads to remove.")
+			logger.Info("There are no downloads to remove.")
 			return
 		}
 
@@ -35,13 +35,13 @@ INFO: Removed downloads:
 		outputMessage := "Removed downloads:\n"
 		for _, d := range downloads {
 			if err := download.DeleteDownload(d.ID); err != nil {
-				logger.LogError("Could not delete download: %v\n", err)
+				logger.Error("Could not delete download: %v\n", err)
 				continue
 			}
 
 			outputMessage += d.String()
 		}
-		logger.LogInfo(outputMessage)
+		logger.Info(outputMessage)
 	},
 }
 
