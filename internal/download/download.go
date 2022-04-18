@@ -212,11 +212,6 @@ func ListDownloads() ([]*Download, error) {
 	return downloads, nil
 }
 
-// DeleteDownload removes the download folder.
-func DeleteDownload(downloadID string) error {
-	return os.RemoveAll(filepath.Join(config.Config.DownloadFolder(), downloadID))
-}
-
 // Execute downloads the specified file.
 // This operation blocks the execution until it finishes or is cancelled by the context.
 func (d *Download) Execute(ctx context.Context) error {
@@ -299,7 +294,7 @@ func (d *Download) Execute(ctx context.Context) error {
 			}
 
 			// Remove internal files.
-			if err := os.RemoveAll(d.FolderPath()); err != nil {
+			if err := d.Delete(); err != nil {
 				return err
 			}
 
@@ -318,7 +313,11 @@ func (d *Download) Execute(ctx context.Context) error {
 
 // String returns a pretty string with the download's information.
 func (d *Download) String() string {
-	return fmt.Sprintln(" ⁕ ", color.HiCyanString(d.ID), " ⇒ ", color.HiCyanString("URL:"), d.URL, color.HiCyanString("Size:"), fsutil.ReadableMemorySize(d.Size))
+	return fmt.Sprintln(
+		" ⁕ ", color.HiCyanString(d.ID), " ⇒ ",
+		color.HiCyanString("URL:"), d.URL,
+		color.HiCyanString("Size:"), fsutil.ReadableMemorySize(d.Size),
+	)
 }
 
 // writer opens the output file in write-only mode.
@@ -393,7 +392,7 @@ func (d *Download) joinWorkers() error {
 func (d *Download) attemptSave() error {
 	// If download is not Resumable, delete it.
 	if !d.Resumable {
-		return DeleteDownload(d.ID)
+		return d.Delete()
 	}
 
 	// Parse download struct as toml.
@@ -409,4 +408,9 @@ func (d *Download) attemptSave() error {
 
 	logger.Info("Resumable download saved in %s.", d.FolderPath())
 	return nil
+}
+
+// Delete removes all related files with the download.
+func (d *Download) Delete() error {
+	return os.RemoveAll(d.FolderPath())
 }

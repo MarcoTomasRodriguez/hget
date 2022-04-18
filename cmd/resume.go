@@ -35,7 +35,7 @@ $ hget resume 01cc0f0a3d94af18-file1.txt`,
 		} else if errors.Is(err, download.ErrDownloadBroken) {
 			logger.Error("Download is broken, and thus will be removed.")
 
-			if err := download.DeleteDownload(args[0]); err != nil {
+			if err := d.Delete(); err != nil {
 				logger.Error("Could not delete saved download: %v", err)
 			}
 		} else {

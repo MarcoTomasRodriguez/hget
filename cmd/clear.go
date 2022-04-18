@@ -34,7 +34,7 @@ INFO: Removed downloads:
 		// List the removed downloads.
 		outputMessage := "Removed downloads:\n"
 		for _, d := range downloads {
-			if err := download.DeleteDownload(d.ID); err != nil {
+			if err := d.Delete(); err != nil {
 				logger.Error("Could not delete download: %v\n", err)
 				continue
 			}
