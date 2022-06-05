@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bytes"
+	"github.com/samber/do"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"log"
@@ -15,7 +16,7 @@ type LoggerSuite struct {
 }
 
 func (s *LoggerSuite) SetupSuite() {
-	logger = log.New(&s.buffer, "", 0)
+	do.ProvideValue[*log.Logger](do.DefaultInjector, log.New(&s.buffer, "", 0))
 }
 
 func (s *LoggerSuite) SetupTest() {
@@ -23,13 +24,13 @@ func (s *LoggerSuite) SetupTest() {
 }
 
 func (s *LoggerSuite) TearDownSuite() {
-	logger = log.New(os.Stdout, "", 0)
+	do.ProvideValue[*log.Logger](do.DefaultInjector, log.New(os.Stdout, "", 0))
 }
 
 func (s *LoggerSuite) TestInfo() {
 	testCases := []struct {
-		message string
-		args []any
+		message  string
+		args     []any
 		expected string
 	}{
 		{
@@ -49,8 +50,8 @@ func (s *LoggerSuite) TestInfo() {
 
 func (s *LoggerSuite) TestWarn() {
 	testCases := []struct {
-		message string
-		args []any
+		message  string
+		args     []any
 		expected string
 	}{
 		{
@@ -70,8 +71,8 @@ func (s *LoggerSuite) TestWarn() {
 
 func (s *LoggerSuite) TestError() {
 	testCases := []struct {
-		message string
-		args []any
+		message  string
+		args     []any
 		expected string
 	}{
 		{

@@ -8,14 +8,18 @@ import (
 	"github.com/cheggaaa/pb"
 	"github.com/fatih/color"
 	"github.com/pelletier/go-toml"
+	"github.com/samber/do"
+	"github.com/spf13/afero"
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/MarcoTomasRodriguez/hget/internal/config"
@@ -24,7 +28,7 @@ import (
 )
 
 var (
-	// ErrDownloadNotExist is an error thrown when trying to fetch an inexistent download.
+	// ErrDownloadNotExist is an error thrown when trying to fetch a non-existent download.
 	ErrDownloadNotExist = errors.New("download does not exist")
 
 	// ErrDownloadBroken is an error thrown when trying to fetch a broken download.
@@ -37,15 +41,23 @@ var (
 	ErrFilenameTooLong = errors.New("filename is too long")
 )
 
-// HTTPClient is a custom client with tls insecure skip verify enabled.
+// httpClient is a custom client with tls insecure skip verify enabled.
 // TODO: Find a way to enable tls verify, and thus improve security, while allowing multi-threaded downloads.
 var httpClient = &http.Client{
 	Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 }
 
-// ResolveURL resolves the rawURL adding the http prefix, preferring https over http.
+// randBytes generates an array with a specific size containing random data.
+func randBytes(size int) []byte {
+	randomBytes := make([]byte, size)
+	rand.Read(randomBytes)
+
+	return randomBytes
+}
+
+// resolveURL resolves the rawURL adding the http prefix, preferring https over http.
 func resolveURL(rawURL string) (string, error) {
-	// Parse the raw rawURL.
+	// Parse the raw url.
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return "", err
@@ -53,7 +65,7 @@ func resolveURL(rawURL string) (string, error) {
 
 	// Check if rawURL is empty.
 	if parsedURL.String() == "" {
-		return "", errors.New("rawURL is empty")
+		return "", errors.New("url is empty")
 	}
 
 	// Check if a scheme is provided.
@@ -77,6 +89,7 @@ func resolveURL(rawURL string) (string, error) {
 }
 
 // Download stores the information relative to a download, including the Workers.
+// TODO: Check ETags to prevent downloading same file/collision - https://en.wikipedia.org/wiki/HTTP_ETag
 type Download struct {
 	// ID is the task unique identifier.
 	// It is used to allow the download of many files with the same name from different sources.
@@ -90,7 +103,11 @@ type Download struct {
 	Name string `toml:"name"`
 
 	// Size is the total file size in bytes.
-	Size uint64 `toml:"size"`
+	Size int64 `toml:"size"`
+
+	// ETag stores the http response ETag.
+	// See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
+	ETag string `toml:"etag"`
 
 	// Resumable flags a download as Resumable.
 	// If false, the download will be automatically removed on cancellation.
@@ -104,72 +121,76 @@ type Download struct {
 }
 
 // NewDownload fetches the download url, obtains all the information required to start a download and finally returns the download struct.
-func NewDownload(downloadURL string, totalWorkers uint16) (*Download, error) {
+func NewDownload(downloadURL string, workerCount int) (*Download, error) {
 	// Resolve download url.
 	downloadURL, err := resolveURL(downloadURL)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create request.
+	// Execute http request.
 	httpResponse, err := httpClient.Get(downloadURL)
 	if err != nil {
 		return nil, err
 	}
-
 	defer httpResponse.Body.Close()
 
-	// Get response headers.
-	contentLengthHeader := httpResponse.Header.Get("Content-Length")
-	acceptRangeHeader := httpResponse.Header.Get("Accept-Ranges")
+	// Extract Content-Length and Accept-Ranges from response headers.
+	contentLength, err := strconv.ParseInt(httpResponse.Header.Get("Content-Length"), 10, 64)
+	acceptRanges := httpResponse.Header.Get("Accept-Ranges")
+	eTag := httpResponse.Header.Get("ETag")
 
-	// If Content-size or Accept-Ranges headers are not provided by the download server,
-	// set the number of Workers to 1.
-	if contentLengthHeader == "" || acceptRangeHeader == "" {
-		totalWorkers = 1
+	// In order for range downloads to work, they should be supported and the content length be provided.
+	if contentLength == 0 || acceptRanges == "" || acceptRanges == "none" {
+		logger.Warn("Range downloads are not supported by the server: setting worker count to 1")
+		workerCount = 1
 	}
 
-	// If Content-Length is not provided by the download server, disable the Resumable feature.
-	isResumable := contentLengthHeader != ""
+	if eTag == "" {
+		logger.Warn("ETag was not provided by the server: resumable's download integrity cannot be guaranteed")
+	}
 
-	// Extract the download name from the url.
-	downloadName := filepath.Base(downloadURL)
+	// Extract the download filename from the headers or from the url.
+	downloadFilename := filepath.Base(downloadURL)
+	_, contentDispositionParams, err := mime.ParseMediaType(httpResponse.Header.Get("Content-Disposition"))
+	if filename, ok := contentDispositionParams["downloadFilename"]; ok {
+		downloadFilename = filename
+	}
 
-	// Check the extracted downloadName validity.
-	if !fsutil.ValidateFilename(downloadName) {
+	// Validate the download filename.
+	if !fsutil.ValidateFilename(downloadFilename) {
 		return nil, err
 	}
 
-	// Generate the internal downloadID.
-	randomBytes := make([]byte, 8)
-	rand.Read(randomBytes)
-	downloadID := fmt.Sprintf("%x-%s", randomBytes, downloadName)
+	// Generate the internal download id.
+	downloadID := fmt.Sprintf("%x-%s", randBytes(8), downloadFilename)
 
-	// Read the download size from the header.
-	downloadSize, _ := strconv.ParseUint(contentLengthHeader, 10, 64)
-
-	// Create download Workers.
-	workers := make([]*Worker, totalWorkers)
-	for i := range workers {
-		workers[i] = NewWorker(uint16(i), totalWorkers, downloadID, downloadURL, downloadSize)
-	}
-
-	return &Download{
+	//
+	download := &Download{
 		ID:        downloadID,
 		URL:       downloadURL,
-		Name:      downloadName,
-		Size:      downloadSize,
-		Resumable: isResumable,
-		Workers:   workers,
-	}, nil
+		Name:      downloadFilename,
+		Size:      contentLength,
+		ETag:      eTag,
+		Resumable: contentLength != 0, // Disable if Content-Length is not provided.
+		Workers:   make([]*Worker, workerCount),
+	}
+
+	// Initialize download workers.
+	for i := range download.Workers {
+		download.Workers[i] = NewWorker(download, i)
+	}
+
+	return download, nil
 }
 
 // GetDownload gets a download by his id.
 func GetDownload(downloadID string) (*Download, error) {
 	d := &Download{ID: downloadID, Resumable: true}
+	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
 
 	// Check if download folder exists.
-	if _, err := os.Stat(d.FolderPath()); os.IsNotExist(err) {
+	if exists, _ := afero.DirExists(fs, d.FolderPath()); !exists {
 		return nil, ErrDownloadNotExist
 	}
 
@@ -190,9 +211,10 @@ func GetDownload(downloadID string) (*Download, error) {
 // ListDownloads lists all the saved downloads.
 func ListDownloads() ([]*Download, error) {
 	var downloads []*Download
+	cfg := do.MustInvoke[*config.Config](do.DefaultInjector)
 
 	// List elements inside the internal downloads' directory.
-	downloadFolders, err := ioutil.ReadDir(config.Config.DownloadFolder())
+	downloadFolders, err := ioutil.ReadDir(cfg.DownloadFolder())
 	if err != nil {
 		return nil, err
 	}
@@ -212,30 +234,83 @@ func ListDownloads() ([]*Download, error) {
 	return downloads, nil
 }
 
+// Delete removes all related files with the download.
+func (d *Download) Delete() error {
+	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
+	return fs.RemoveAll(d.FolderPath())
+}
+
+// String returns a pretty string with the download's information.
+func (d *Download) String() string {
+	return fmt.Sprintln(
+		" ⁕ ", color.HiCyanString(d.ID), " ⇒ ",
+		color.HiCyanString("URL:"), d.URL,
+		color.HiCyanString("Size:"), fsutil.ReadableMemorySize(d.Size),
+	)
+}
+
+// DownloadFilePath returns the path of the download output.
+// TODO: Document new behaviour.
+func (d *Download) DownloadFilePath() string {
+	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
+	cfg := do.MustInvoke[*config.Config](do.DefaultInjector)
+
+	filename := filepath.Join(cfg.Download.Folder, d.Name)
+
+	if exists, _ := afero.Exists(fs, filename); exists {
+		count := 0
+		parts := strings.Split(d.Name, ".")
+
+		for {
+			filename = filepath.Join(cfg.Download.Folder, fmt.Sprintf("%s(%d).%s", parts[0], count, strings.Join(parts[1:], ".")))
+			if exists, _ := afero.Exists(fs, filename); !exists {
+				break
+			}
+
+			count++
+		}
+	}
+
+	return filename
+}
+
+// FolderPath gets the path to the download folder.
+func (d *Download) FolderPath() string {
+	cfg := do.MustInvoke[*config.Config](do.DefaultInjector)
+	return filepath.Join(cfg.DownloadFolder(), d.ID)
+}
+
+// FilePath gets the path to the download TOML file.
+func (d *Download) FilePath() string {
+	return filepath.Join(d.FolderPath(), "download.toml")
+}
+
 // Execute downloads the specified file.
 // This operation blocks the execution until it finishes or is cancelled by the context.
 func (d *Download) Execute(ctx context.Context) error {
+	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
+
 	// Initialize uplink channels.
 	errorChannel := make(chan error)
 	doneChannel := make(chan struct{})
 	workerProgressBars := make([]*pb.ProgressBar, len(d.Workers))
 
-	// Create download folder.
-	if err := os.MkdirAll(d.FolderPath(), 0755); err != nil {
+	// Create download folder with the default unix directory permissions: drwxr-xr-x.
+	if err := fs.MkdirAll(d.FolderPath(), 0755); err != nil {
 		return err
 	}
 
 	go func(ctx context.Context) {
-		waitGroup := new(sync.WaitGroup)
+		var waitGroup sync.WaitGroup
 
 		// Start download Workers.
 		for i, w := range d.Workers {
 			// Calculate bytes left to download.
-			currentSize := w.currentSize()
-			downloadSize := w.downloadSize()
+			currentSize := w.fileSize()
+			downloadSize := w.EndPoint - w.StartingPoint
 			bytesLeft := int64(0)
 			if downloadSize > currentSize {
-				bytesLeft = int64(downloadSize - currentSize)
+				bytesLeft = downloadSize - currentSize
 			}
 
 			// Setup progress bar.
@@ -256,7 +331,7 @@ func (d *Download) Execute(ctx context.Context) error {
 				// Recover from panic.
 				defer func() {
 					if r := recover(); r != nil {
-						errorChannel <- fmt.Errorf("Worker panic: %v", r)
+						errorChannel <- fmt.Errorf("worker panic: %v", r)
 					}
 				}()
 
@@ -298,7 +373,6 @@ func (d *Download) Execute(ctx context.Context) error {
 				return err
 			}
 
-			logger.Info("Download saved in %s.", d.OutputFilePath())
 			return nil
 		case err := <-errorChannel:
 			// Attempt to save the download.
@@ -311,48 +385,18 @@ func (d *Download) Execute(ctx context.Context) error {
 	}
 }
 
-// String returns a pretty string with the download's information.
-func (d *Download) String() string {
-	return fmt.Sprintln(
-		" ⁕ ", color.HiCyanString(d.ID), " ⇒ ",
-		color.HiCyanString("URL:"), d.URL,
-		color.HiCyanString("Size:"), fsutil.ReadableMemorySize(d.Size),
-	)
-}
-
-// writer opens the output file in write-only mode.
-func (d *Download) writer() (io.WriteCloser, error) {
-	return os.OpenFile(d.OutputFilePath(), os.O_CREATE|os.O_WRONLY, 0644)
-}
-
-// OutputFilePath returns the path of the download output.
-func (d *Download) OutputFilePath() string {
-	if config.Config.Download.CollisionProtection {
-		return filepath.Join(config.Config.Download.Folder, d.ID)
-	}
-
-	return filepath.Join(config.Config.Download.Folder, d.Name)
-}
-
-// FolderPath gets the path to the download folder.
-func (d *Download) FolderPath() string {
-	return filepath.Join(config.Config.DownloadFolder(), d.ID)
-}
-
-// FilePath gets the path to the download TOML file.
-func (d *Download) FilePath() string {
-	return filepath.Join(d.FolderPath(), "download.toml")
-}
-
 // joinWorkers joins the worker files into the output file.
 func (d *Download) joinWorkers() error {
-	// Open output file.
-	downloadWriter, err := d.writer()
+	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
+
+	// Open output file in write-only mode with permissions: -rw-r--r--.
+	downloadFilepath := d.DownloadFilePath()
+	downloadFile, err := fs.OpenFile(downloadFilepath, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
 
-	defer downloadWriter.Close()
+	defer downloadFile.Close()
 
 	// Setup progress bar.
 	bar := pb.StartNew(len(d.Workers)).Prefix(color.CyanString("Joining"))
@@ -361,10 +405,10 @@ func (d *Download) joinWorkers() error {
 	defer bar.Finish()
 
 	// Join the Workers' files into output file.
-	for _, worker := range d.Workers {
+	for _, w := range d.Workers {
 		err := func() error {
 			// Get worker reader.
-			workerReader, err := worker.reader()
+			workerReader, err := fs.Open(w.filePath())
 			if err != nil {
 				return err
 			}
@@ -372,7 +416,7 @@ func (d *Download) joinWorkers() error {
 			defer workerReader.Close()
 
 			// Append worker file to output file.
-			if _, err = io.Copy(downloadWriter, workerReader); err != nil {
+			if _, err = io.Copy(downloadFile, workerReader); err != nil {
 				return err
 			}
 
@@ -385,12 +429,14 @@ func (d *Download) joinWorkers() error {
 		}
 	}
 
+	logger.Info("Download saved in %s.", downloadFilepath)
+
 	return nil
 }
 
-// attemptSave saves the download struct as a toml file if it is Resumable, otherwise it deletes it.
+// attemptSave saves the download information inside a toml file if resumable, otherwise deletes the dangling files.
 func (d *Download) attemptSave() error {
-	// If download is not Resumable, delete it.
+	// If not resumable, delete the dangling files.
 	if !d.Resumable {
 		return d.Delete()
 	}
@@ -401,16 +447,11 @@ func (d *Download) attemptSave() error {
 		return err
 	}
 
-	// Save download as a toml file.
+	// Save download as a toml file with permissions: -rw-r--r--.
 	if err := ioutil.WriteFile(d.FilePath(), downloadToml, 0644); err != nil {
 		return err
 	}
 
 	logger.Info("Resumable download saved in %s.", d.FolderPath())
 	return nil
-}
-
-// Delete removes all related files with the download.
-func (d *Download) Delete() error {
-	return os.RemoveAll(d.FolderPath())
 }

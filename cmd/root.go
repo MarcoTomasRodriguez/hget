@@ -2,10 +2,13 @@ package cmd
 
 import (
 	"context"
+	"github.com/MarcoTomasRodriguez/hget/internal/config"
+	"github.com/samber/do"
+	"github.com/spf13/afero"
+	"log"
 	"math/rand"
 	"time"
 
-	"github.com/MarcoTomasRodriguez/hget/internal/config"
 	"github.com/MarcoTomasRodriguez/hget/internal/download"
 	"github.com/MarcoTomasRodriguez/hget/pkg/console"
 	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
@@ -33,7 +36,7 @@ download threads and to stop and resume tasks.
 		ctx := console.CancelableContext(context.Background())
 
 		// Get number of workers from flags.
-		workers, err := cmd.Flags().GetUint16("workers")
+		workers, err := cmd.Flags().GetInt("workers")
 		if err != nil {
 			logger.Error("Could not get number of workers from flags.")
 			return
@@ -58,21 +61,29 @@ func Execute() {
 	cobra.CheckErr(rootCmd.Execute())
 }
 
+func initializeDependencies() {
+	configPath, _ := rootCmd.PersistentFlags().GetString("config_path")
+	do.ProvideValue[*config.Config](do.DefaultInjector, config.NewConfig(configPath))
+	do.ProvideValue[*log.Logger](do.DefaultInjector, log.New(os.Stdout, "", 0))
+	do.ProvideValue[afero.Fs](do.DefaultInjector, afero.NewOsFs())
+}
+
 func init() {
 	// Seed math/rand.
 	rand.Seed(time.Now().UnixNano())
 
-	// Initialize config.
-	cobra.OnInitialize(config.LoadConfig)
-
 	// Define config global flag.
 	homeDir, _ := os.UserHomeDir()
-	rootCmd.PersistentFlags().StringVar(&config.Filepath, "config", filepath.Join(homeDir, ".hget/config.toml"), "Set config file.")
+	configPath := filepath.Join(homeDir, ".hget/config.toml")
+	rootCmd.PersistentFlags().String("config_path", configPath, "Set the configuration path.")
 
 	// Define log level global flag.
-	rootCmd.PersistentFlags().Uint8("log", uint8(2), "Set log level: 0 means no logs, 1 only important logs and 2 all logs.")
+	rootCmd.PersistentFlags().Int("log", 2, "Set log level: 0 means no logs, 1 only important logs and 2 all logs.")
 	_ = viper.BindPFlag("log_level", rootCmd.PersistentFlags().Lookup("log"))
 
 	// Define worker numbers flag.
-	rootCmd.Flags().Uint16P("workers", "n", uint16(runtime.NumCPU()), "Set number of download workers.")
+	rootCmd.Flags().IntP("workers", "n", runtime.NumCPU(), "Set number of download workers.")
+
+	// Initialize dependencies.
+	cobra.OnInitialize(initializeDependencies)
 }

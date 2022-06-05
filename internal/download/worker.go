@@ -2,8 +2,11 @@ package download
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/cheggaaa/pb"
+	"github.com/samber/do"
+	"github.com/spf13/afero"
 	"io"
 	"net/http"
 	"os"
@@ -12,85 +15,87 @@ import (
 	"github.com/MarcoTomasRodriguez/hget/internal/config"
 )
 
-// Worker represents a goroutine in charge of downloading a file part/segment.
+// A Worker is the entity in charge of downloading a specific file segment.
 type Worker struct {
-	// Index is the index of the worker.
-	// During the merge process, the worker downloads will be concatenated using this index.
-	Index uint16 `toml:"index"`
+	// Index is used to identify and sequentially order the workers during the final concatenation process.
+	Index int `toml:"index"`
 
-	// DownloadID stores the id of the download.
-	DownloadID string `toml:"download_id"`
+	// StartingPoint specifies the segment starting byte.
+	StartingPoint int64 `toml:"starting_point"`
 
-	// DownloadURL stores the url of the download.
-	DownloadURL string `toml:"download_url"`
+	// EndPoint specifies the segment end byte.
+	EndPoint int64 `toml:"end_point"`
 
-	// RangeFrom is the start point of the worker download.
-	RangeFrom uint64 `toml:"range_from"`
-
-	// RangeTo is the end position of the worker download.
-	RangeTo uint64 `toml:"range_to"`
+	// ...
+	download *Download
 }
 
-// NewWorker computes the start & end point of the worker download and returns a new worker.
-func NewWorker(workerIndex uint16, totalWorkers uint16, downloadId string, downloadURL string, downloadSize uint64) *Worker {
-	// Calculate beginning of range.
-	rangeFrom := (downloadSize / uint64(totalWorkers)) * uint64(workerIndex)
+// NewWorker computes the byte endpoints and returns a new worker.
+func NewWorker(download *Download, workerIndex int) *Worker {
+	// ...
+	workerCount := len(download.Workers)
 
-	// By default, a thread is in charge of downloading the whole file.
-	rangeTo := downloadSize
+	// Compute the worker's starting point.
+	startingPoint := (download.Size / int64(workerCount)) * int64(workerIndex)
 
-	// If the worker index is not the last, calculate the desired range.
-	if workerIndex < totalWorkers-1 {
-		rangeTo = (downloadSize/uint64(totalWorkers))*(uint64(workerIndex)+1) - 1
+	// Initialize the worker's end point. By default, it is the download size.
+	endPoint := download.Size
+
+	// If the worker is not the last, compute his end point.
+	if workerIndex < workerCount-1 {
+		endPoint = (download.Size/int64(workerCount))*(int64(workerIndex)+1) - 1
 	}
 
 	return &Worker{
-		Index:       workerIndex,
-		DownloadID:  downloadId,
-		RangeFrom:   rangeFrom,
-		RangeTo:     rangeTo,
-		DownloadURL: downloadURL,
+		Index:         workerIndex,
+		StartingPoint: startingPoint,
+		EndPoint:      endPoint,
+		download:      download,
 	}
 }
 
-// Execute starts the download of the file slice.
-// This operation is blocking and must be called inside a goroutine.
+// Execute starts the worker's segment download blocking the execution, hence it must be called inside a goroutine.
 func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
-	// Compute current range from (defined start + worker file size).
-	currentRangeFrom := w.RangeFrom + w.currentSize()
+	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
+	cfg := do.MustInvoke[*config.Config](do.DefaultInjector)
 
-	// Create worker file.
-	workerWriter, err := w.writer()
-	if err != nil {
-		return err
-	}
-
-	// Close worker writer on exit.
-	defer workerWriter.Close()
-
-	// Send request.
-	httpRequest, err := http.NewRequest("GET", w.DownloadURL, nil)
-	if err != nil {
-		return err
-	}
+	// Computes the actual starting point by taking into account the worker file size.
+	startingPoint := w.StartingPoint + w.fileSize()
 
 	// Check if file size exceeds range.
-	if currentRangeFrom > w.RangeTo {
+	if startingPoint > w.EndPoint {
 		return nil
 	}
 
+	// Create the worker file with permissions: -rw-r--r--.
+	workerFile, err := fs.OpenFile(w.filePath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+
+	defer workerFile.Close()
+
+	// Send http request.
+	httpRequest, err := http.NewRequestWithContext(ctx, "GET", w.download.URL, nil)
+	if err != nil {
+		return err
+	}
+
 	// Setup range download.
-	httpRequest.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", currentRangeFrom, w.RangeTo))
+	httpRequest.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", startingPoint, w.EndPoint))
 
 	// Execute get request with range header.
 	httpResponse, err := httpClient.Do(httpRequest)
 	if err != nil {
 		return err
 	}
-
 	defer httpResponse.Body.Close()
 
-	writer := io.MultiWriter(workerWriter, bar)
+	if httpResponse.Header.Get("ETag") != w.download.ETag {
+		return errors.New("ETag does not match") // Restart download if etag does not match.
+	}
+
+	writer := io.MultiWriter(workerFile, bar)
 
 	for {
 		select {
@@ -98,7 +103,7 @@ func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 			return nil
 		default:
 			// Copy from response to writer.
-			_, err := io.CopyN(writer, httpResponse.Body, config.Config.Download.CopyNBytes)
+			_, err := io.CopyN(writer, httpResponse.Body, cfg.Download.CopyNBytes)
 
 			if err != nil {
 				// Throw error if any (in this case, EOF is not considered an error).
@@ -114,30 +119,17 @@ func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 
 // filePath returns the worker file path.
 func (w *Worker) filePath() string {
-	return filepath.Join(config.Config.DownloadFolder(), w.DownloadID, fmt.Sprintf("worker.%05d", w.Index))
+	cfg := do.MustInvoke[*config.Config](do.DefaultInjector)
+	return filepath.Join(cfg.DownloadFolder(), w.download.ID, fmt.Sprintf("worker.%05d", w.Index))
 }
 
-// reader opens the worker file in read-only mode.
-func (w *Worker) reader() (io.ReadCloser, error) {
-	return os.OpenFile(w.filePath(), os.O_RDONLY, 0644)
-}
-
-// writer opens the worker file in append-write-only mode.
-func (w *Worker) writer() (io.WriteCloser, error) {
-	return os.OpenFile(w.filePath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-}
-
-// downloadSize calculates the difference between the maximum and minimum range.
-func (w *Worker) downloadSize() uint64 {
-	return w.RangeTo - w.RangeFrom
-}
-
-// currentSize returns the size of the worker file.
-func (w *Worker) currentSize() uint64 {
-	fileInfo, err := os.Stat(w.filePath())
+// fileSize returns the size of the worker file.
+func (w *Worker) fileSize() int64 {
+	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
+	fileInfo, err := fs.Stat(w.filePath())
 	if err != nil {
 		return 0
 	}
 
-	return uint64(fileInfo.Size())
+	return fileInfo.Size()
 }

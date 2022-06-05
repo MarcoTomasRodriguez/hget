@@ -14,8 +14,8 @@ const (
 	PB = SI * TB
 )
 
-type UnsignedNumber interface {
-	uint | uint16 | uint32 | uint64
+type Number interface {
+	uint | uint16 | uint32 | uint64 | int | int16 | int32 | int64
 }
 
 // ValidateFilename checks the validity of a filename.
@@ -27,7 +27,7 @@ func ValidateFilename(filename string) bool {
 
 // ReadableMemorySize returns a prettier form of some memory size expressed in bytes.
 // Note: Do not exceed the float64 limit, as the result will overflow.
-func ReadableMemorySize[T UnsignedNumber](bytes T) string {
+func ReadableMemorySize[T Number](bytes T) string {
 	if bytes < SI {
 		return fmt.Sprintf("%d B", bytes)
 	}
