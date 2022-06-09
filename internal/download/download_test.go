@@ -26,13 +26,13 @@ func (s *DownloadSuite) SetupTest() {
 	cfg.ProgramFolder = programFolder
 	cfg.Download.Folder = downloadFolder
 
-	do.ProvideValue[*config.Config](do.DefaultInjector, cfg)
-	do.ProvideValue[afero.Fs](do.DefaultInjector, afero.NewMemMapFs())
+	do.ProvideValue[*config.Config](nil, cfg)
+	do.ProvideValue[*afero.Afero](nil, &afero.Afero{Fs: afero.NewMemMapFs()})
 }
 
 func (s *DownloadSuite) TestDownloadFilePath() {
 	d := &Download{Name: downloadName}
-	s.Equal(filepath.Join(downloadFolder, downloadName), d.DownloadFilePath())
+	s.Equal(filepath.Join(downloadFolder, downloadName), d.OutputFilePath())
 }
 
 func (s *DownloadSuite) TestFolderPath() {

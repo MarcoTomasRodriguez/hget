@@ -33,16 +33,10 @@ var (
 
 	// ErrDownloadBroken is an error thrown when trying to fetch a broken download.
 	ErrDownloadBroken = errors.New("download is broken")
-
-	// ErrFilenameEmpty is an error thrown when a cleaned download filename is empty.
-	ErrFilenameEmpty = errors.New("filename is empty")
-
-	// ErrFilenameTooLong is an error thrown when a download filename is too long.
-	ErrFilenameTooLong = errors.New("filename is too long")
 )
 
 // httpClient is a custom client with tls insecure skip verify enabled.
-// TODO: Find a way to enable tls verify, and thus improve security, while allowing multi-threaded downloads.
+// TODO: Find a way to enable tls verify, and thus improve security, while allowing multithreading downloads.
 var httpClient = &http.Client{
 	Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 }
@@ -89,7 +83,6 @@ func resolveURL(rawURL string) (string, error) {
 }
 
 // Download stores the information relative to a download, including the Workers.
-// TODO: Check ETags to prevent downloading same file/collision - https://en.wikipedia.org/wiki/HTTP_ETag
 type Download struct {
 	// ID is the task unique identifier.
 	// It is used to allow the download of many files with the same name from different sources.
@@ -146,6 +139,7 @@ func NewDownload(downloadURL string, workerCount int) (*Download, error) {
 		workerCount = 1
 	}
 
+	// Check if ETag was provided.
 	if eTag == "" {
 		logger.Warn("ETag was not provided by the server: resumable's download integrity cannot be guaranteed")
 	}
@@ -159,13 +153,13 @@ func NewDownload(downloadURL string, workerCount int) (*Download, error) {
 
 	// Validate the download filename.
 	if !fsutil.ValidateFilename(downloadFilename) {
-		return nil, err
+		return nil, errors.New("invalid download filename")
 	}
 
 	// Generate the internal download id.
 	downloadID := fmt.Sprintf("%x-%s", randBytes(8), downloadFilename)
 
-	//
+	// Initialize download.
 	download := &Download{
 		ID:        downloadID,
 		URL:       downloadURL,
@@ -187,7 +181,7 @@ func NewDownload(downloadURL string, workerCount int) (*Download, error) {
 // GetDownload gets a download by his id.
 func GetDownload(downloadID string) (*Download, error) {
 	d := &Download{ID: downloadID, Resumable: true}
-	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
+	fs := do.MustInvoke[*afero.Afero](nil)
 
 	// Check if download folder exists.
 	if exists, _ := afero.DirExists(fs, d.FolderPath()); !exists {
@@ -211,7 +205,7 @@ func GetDownload(downloadID string) (*Download, error) {
 // ListDownloads lists all the saved downloads.
 func ListDownloads() ([]*Download, error) {
 	var downloads []*Download
-	cfg := do.MustInvoke[*config.Config](do.DefaultInjector)
+	cfg := do.MustInvoke[*config.Config](nil)
 
 	// List elements inside the internal downloads' directory.
 	downloadFolders, err := ioutil.ReadDir(cfg.DownloadFolder())
@@ -236,7 +230,7 @@ func ListDownloads() ([]*Download, error) {
 
 // Delete removes all related files with the download.
 func (d *Download) Delete() error {
-	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
+	fs := do.MustInvoke[*afero.Afero](nil)
 	return fs.RemoveAll(d.FolderPath())
 }
 
@@ -249,19 +243,23 @@ func (d *Download) String() string {
 	)
 }
 
-// DownloadFilePath returns the path of the download output.
-// TODO: Document new behaviour.
-func (d *Download) DownloadFilePath() string {
-	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
-	cfg := do.MustInvoke[*config.Config](do.DefaultInjector)
+// OutputFilePath returns an available output path for the download file.
+func (d *Download) OutputFilePath() string {
+	fs := do.MustInvoke[*afero.Afero](nil)
+	cfg := do.MustInvoke[*config.Config](nil)
 
 	filename := filepath.Join(cfg.Download.Folder, d.Name)
 
+	// If a download with the same name exists, add a number after the original name in parentheses.
+	// Example: go1.17.2.src.tar.gz => go1.17.2(1).src.tar.gz
 	if exists, _ := afero.Exists(fs, filename); exists {
-		count := 0
+		// Split download file name by ".".
 		parts := strings.Split(d.Name, ".")
+		count := 1
 
 		for {
+			// Check if a filename with the current count already exists. If so, continue iterating until a filename
+			// is available.
 			filename = filepath.Join(cfg.Download.Folder, fmt.Sprintf("%s(%d).%s", parts[0], count, strings.Join(parts[1:], ".")))
 			if exists, _ := afero.Exists(fs, filename); !exists {
 				break
@@ -276,7 +274,7 @@ func (d *Download) DownloadFilePath() string {
 
 // FolderPath gets the path to the download folder.
 func (d *Download) FolderPath() string {
-	cfg := do.MustInvoke[*config.Config](do.DefaultInjector)
+	cfg := do.MustInvoke[*config.Config](nil)
 	return filepath.Join(cfg.DownloadFolder(), d.ID)
 }
 
@@ -288,7 +286,7 @@ func (d *Download) FilePath() string {
 // Execute downloads the specified file.
 // This operation blocks the execution until it finishes or is cancelled by the context.
 func (d *Download) Execute(ctx context.Context) error {
-	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
+	fs := do.MustInvoke[*afero.Afero](nil)
 
 	// Initialize uplink channels.
 	errorChannel := make(chan error)
@@ -315,7 +313,7 @@ func (d *Download) Execute(ctx context.Context) error {
 
 			// Setup progress bar.
 			bar := pb.New64(bytesLeft).SetUnits(pb.U_BYTES).Prefix(
-				color.CyanString(fmt.Sprintf("Worker #%d", w.Index)),
+				color.CyanString(fmt.Sprintf("Worker #%d", w.ID)),
 			)
 
 			// Add worker to wait group.
@@ -387,10 +385,10 @@ func (d *Download) Execute(ctx context.Context) error {
 
 // joinWorkers joins the worker files into the output file.
 func (d *Download) joinWorkers() error {
-	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
+	fs := do.MustInvoke[*afero.Afero](nil)
 
 	// Open output file in write-only mode with permissions: -rw-r--r--.
-	downloadFilepath := d.DownloadFilePath()
+	downloadFilepath := d.OutputFilePath()
 	downloadFile, err := fs.OpenFile(downloadFilepath, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err

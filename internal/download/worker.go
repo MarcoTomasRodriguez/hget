@@ -15,24 +15,23 @@ import (
 	"github.com/MarcoTomasRodriguez/hget/internal/config"
 )
 
-// A Worker is the entity in charge of downloading a specific file segment.
+// A Worker downloads a specific file segment.
 type Worker struct {
-	// Index is used to identify and sequentially order the workers during the final concatenation process.
-	Index int `toml:"index"`
+	// ID identifies the worker sequentially.
+	ID int `toml:"id"`
 
-	// StartingPoint specifies the segment starting byte.
+	// StartingPoint specifies the segment starting point.
 	StartingPoint int64 `toml:"starting_point"`
 
-	// EndPoint specifies the segment end byte.
+	// EndPoint specifies the segment end point.
 	EndPoint int64 `toml:"end_point"`
 
-	// ...
+	// Worker's parent download.
 	download *Download
 }
 
-// NewWorker computes the byte endpoints and returns a new worker.
+// NewWorker computes the file segment endpoints and returns a worker.
 func NewWorker(download *Download, workerIndex int) *Worker {
-	// ...
 	workerCount := len(download.Workers)
 
 	// Compute the worker's starting point.
@@ -47,7 +46,7 @@ func NewWorker(download *Download, workerIndex int) *Worker {
 	}
 
 	return &Worker{
-		Index:         workerIndex,
+		ID:            workerIndex,
 		StartingPoint: startingPoint,
 		EndPoint:      endPoint,
 		download:      download,
@@ -56,8 +55,8 @@ func NewWorker(download *Download, workerIndex int) *Worker {
 
 // Execute starts the worker's segment download blocking the execution, hence it must be called inside a goroutine.
 func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
-	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
-	cfg := do.MustInvoke[*config.Config](do.DefaultInjector)
+	fs := do.MustInvoke[*afero.Afero](nil)
+	cfg := do.MustInvoke[*config.Config](nil)
 
 	// Computes the actual starting point by taking into account the worker file size.
 	startingPoint := w.StartingPoint + w.fileSize()
@@ -72,7 +71,6 @@ func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 	if err != nil {
 		return err
 	}
-
 	defer workerFile.Close()
 
 	// Send http request.
@@ -91,8 +89,9 @@ func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 	}
 	defer httpResponse.Body.Close()
 
+	// Restart download if the ETag does not match.
 	if httpResponse.Header.Get("ETag") != w.download.ETag {
-		return errors.New("ETag does not match") // Restart download if etag does not match.
+		return errors.New("ETag does not match")
 	}
 
 	writer := io.MultiWriter(workerFile, bar)
@@ -119,13 +118,13 @@ func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 
 // filePath returns the worker file path.
 func (w *Worker) filePath() string {
-	cfg := do.MustInvoke[*config.Config](do.DefaultInjector)
-	return filepath.Join(cfg.DownloadFolder(), w.download.ID, fmt.Sprintf("worker.%05d", w.Index))
+	cfg := do.MustInvoke[*config.Config](nil)
+	return filepath.Join(cfg.DownloadFolder(), w.download.ID, fmt.Sprintf("worker.%05d", w.ID))
 }
 
 // fileSize returns the size of the worker file.
 func (w *Worker) fileSize() int64 {
-	fs := do.MustInvoke[afero.Fs](do.DefaultInjector)
+	fs := do.MustInvoke[*afero.Afero](nil)
 	fileInfo, err := fs.Stat(w.filePath())
 	if err != nil {
 		return 0

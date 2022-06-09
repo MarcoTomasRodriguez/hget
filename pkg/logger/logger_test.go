@@ -16,7 +16,7 @@ type LoggerSuite struct {
 }
 
 func (s *LoggerSuite) SetupSuite() {
-	do.ProvideValue[*log.Logger](do.DefaultInjector, log.New(&s.buffer, "", 0))
+	do.ProvideValue[*log.Logger](nil, log.New(&s.buffer, "", 0))
 }
 
 func (s *LoggerSuite) SetupTest() {
@@ -24,7 +24,7 @@ func (s *LoggerSuite) SetupTest() {
 }
 
 func (s *LoggerSuite) TearDownSuite() {
-	do.ProvideValue[*log.Logger](do.DefaultInjector, log.New(os.Stdout, "", 0))
+	do.ProvideValue[*log.Logger](nil, log.New(os.Stdout, "", 0))
 }
 
 func (s *LoggerSuite) TestInfo() {

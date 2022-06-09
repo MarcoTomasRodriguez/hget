@@ -36,6 +36,7 @@ download threads and to stop and resume tasks.
 		ctx := console.CancelableContext(context.Background())
 
 		// Get number of workers from flags.
+		// TODO: Add worker limit.
 		workers, err := cmd.Flags().GetInt("workers")
 		if err != nil {
 			logger.Error("Could not get number of workers from flags.")
@@ -63,9 +64,9 @@ func Execute() {
 
 func initializeDependencies() {
 	configPath, _ := rootCmd.PersistentFlags().GetString("config_path")
-	do.ProvideValue[*config.Config](do.DefaultInjector, config.NewConfig(configPath))
-	do.ProvideValue[*log.Logger](do.DefaultInjector, log.New(os.Stdout, "", 0))
-	do.ProvideValue[afero.Fs](do.DefaultInjector, afero.NewOsFs())
+	do.ProvideValue[*config.Config](nil, config.NewConfig(configPath))
+	do.ProvideValue[*log.Logger](nil, log.New(os.Stdout, "", 0))
+	do.ProvideValue[*afero.Afero](nil, &afero.Afero{Fs: afero.NewOsFs()})
 }
 
 func init() {
