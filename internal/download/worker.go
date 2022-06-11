@@ -31,13 +31,13 @@ type Worker struct {
 }
 
 // NewWorker computes the file segment endpoints and returns a worker.
-func NewWorker(download *Download, workerIndex int) *Worker {
+func NewWorker(workerIndex int, download *Download) *Worker {
 	workerCount := len(download.Workers)
 
 	// Compute the worker's starting point.
 	startingPoint := (download.Size / int64(workerCount)) * int64(workerIndex)
 
-	// Initialize the worker's end point. By default, it is the download size.
+	// Initialize the worker's end point. By default, it is the download downloadSize.
 	endPoint := download.Size
 
 	// If the worker is not the last, compute his end point.
@@ -58,10 +58,10 @@ func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 	fs := do.MustInvoke[*afero.Afero](nil)
 	cfg := do.MustInvoke[*config.Config](nil)
 
-	// Computes the actual starting point by taking into account the worker file size.
+	// Computes the actual starting point by taking into account the worker file downloadSize.
 	startingPoint := w.StartingPoint + w.fileSize()
 
-	// Check if file size exceeds range.
+	// Check if file downloadSize exceeds range.
 	if startingPoint > w.EndPoint {
 		return nil
 	}
@@ -122,7 +122,7 @@ func (w *Worker) filePath() string {
 	return filepath.Join(cfg.DownloadFolder(), w.download.ID, fmt.Sprintf("worker.%05d", w.ID))
 }
 
-// fileSize returns the size of the worker file.
+// fileSize returns the downloadSize of the worker file.
 func (w *Worker) fileSize() int64 {
 	fs := do.MustInvoke[*afero.Afero](nil)
 	fileInfo, err := fs.Stat(w.filePath())

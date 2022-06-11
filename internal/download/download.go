@@ -41,7 +41,7 @@ var httpClient = &http.Client{
 	Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 }
 
-// randBytes generates an array with a specific size containing random data.
+// randBytes generates an array with a specific downloadSize containing random data.
 func randBytes(size int) []byte {
 	randomBytes := make([]byte, size)
 	rand.Read(randomBytes)
@@ -95,8 +95,8 @@ type Download struct {
 	// Name is the original filename.
 	Name string `toml:"name"`
 
-	// Size is the total file size in bytes.
-	Size int64 `toml:"size"`
+	// Size is the total file downloadSize in bytes.
+	Size int64 `toml:"downloadSize"`
 
 	// ETag stores the http response ETag.
 	// See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
@@ -172,7 +172,7 @@ func NewDownload(downloadURL string, workerCount int) (*Download, error) {
 
 	// Initialize download workers.
 	for i := range download.Workers {
-		download.Workers[i] = NewWorker(download, i)
+		download.Workers[i] = NewWorker(i, download)
 	}
 
 	return download, nil
