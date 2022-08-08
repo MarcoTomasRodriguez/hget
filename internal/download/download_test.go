@@ -1,7 +1,9 @@
 package download
 
 import (
+	"fmt"
 	"github.com/MarcoTomasRodriguez/hget/internal/config"
+	"github.com/MarcoTomasRodriguez/hget/pkg/fsutil"
 	"github.com/samber/do"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/suite"
@@ -30,19 +32,28 @@ func (s *DownloadSuite) SetupTest() {
 	do.ProvideValue[*afero.Afero](nil, &afero.Afero{Fs: afero.NewMemMapFs()})
 }
 
-func (s *DownloadSuite) TestDownloadFilePath() {
+func (s *DownloadSuite) TestDownload_String() {
+	d := &Download{ID: downloadID, URL: downloadURL, Size: 4.3243 * fsutil.GB}
+	s.Equal(fmt.Sprintf(" ⁕ %s ⇒ URL: %s Size: 4.3 GB\n", downloadID, downloadURL), d.String())
+}
+
+func (s *DownloadSuite) TestDownload_Delete() {
+
+}
+
+func (s *DownloadSuite) TestDownload_OutputFilePath() {
 	d := &Download{Name: downloadName}
 	s.Equal(filepath.Join(downloadFolder, downloadName), d.OutputFilePath())
 }
 
-func (s *DownloadSuite) TestFolderPath() {
+func (s *DownloadSuite) TestDownload_FolderPath() {
 	d := &Download{ID: downloadID}
-	s.Equal(d.FolderPath(), filepath.Join(programFolder, "downloads", downloadID))
+	s.Equal(filepath.Join(programFolder, "downloads", downloadID), d.FolderPath())
 }
 
-func (s *DownloadSuite) TestFilePath() {
+func (s *DownloadSuite) TestDownload_FilePath() {
 	d := &Download{ID: downloadID}
-	s.Equal(d.FilePath(), filepath.Join(programFolder, "downloads", downloadID, "download.toml"))
+	s.Equal(filepath.Join(programFolder, "downloads", downloadID, "download.toml"), d.FilePath())
 }
 
 func TestDownloadSuite(t *testing.T) {

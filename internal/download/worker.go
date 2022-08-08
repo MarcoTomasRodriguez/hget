@@ -2,6 +2,7 @@ package download
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"github.com/cheggaaa/pb"
@@ -30,6 +31,10 @@ type Worker struct {
 	download *Download
 }
 
+var httpClient = &http.Client{
+	Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+}
+
 // NewWorker computes the file segment endpoints and returns a worker.
 func NewWorker(workerIndex int, download *Download) *Worker {
 	workerCount := len(download.Workers)
@@ -54,8 +59,9 @@ func NewWorker(workerIndex int, download *Download) *Worker {
 }
 
 // Execute starts the worker's segment download blocking the execution, hence it must be called inside a goroutine.
+// TODO: Add tests.
 func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
-	fs := do.MustInvoke[*afero.Afero](nil)
+	afs := do.MustInvoke[*afero.Afero](nil)
 	cfg := do.MustInvoke[*config.Config](nil)
 
 	// Computes the actual starting point by taking into account the worker file downloadSize.
@@ -67,14 +73,14 @@ func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 	}
 
 	// Create the worker file with permissions: -rw-r--r--.
-	workerFile, err := fs.OpenFile(w.filePath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	workerFile, err := afs.OpenFile(w.filePath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return err
 	}
 	defer workerFile.Close()
 
 	// Send http request.
-	httpRequest, err := http.NewRequestWithContext(ctx, "GET", w.download.URL, nil)
+	httpRequest, err := http.NewRequestWithContext(ctx, "GET", w.download.URL, http.NoBody)
 	if err != nil {
 		return err
 	}
@@ -94,7 +100,10 @@ func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 		return errors.New("ETag does not match")
 	}
 
-	writer := io.MultiWriter(workerFile, bar)
+	writer := workerFile.(io.Writer)
+	if bar != nil {
+		writer = io.MultiWriter(writer, bar)
+	}
 
 	for {
 		select {

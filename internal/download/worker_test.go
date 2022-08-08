@@ -1,16 +1,36 @@
 package download
 
 import (
+	"context"
 	"fmt"
 	"github.com/MarcoTomasRodriguez/hget/internal/config"
 	"github.com/MarcoTomasRodriguez/hget/pkg/fsutil"
+	"github.com/jarcoal/httpmock"
 	"github.com/samber/do"
 	"github.com/spf13/afero"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
+	"net/http"
 	"testing"
 )
 
-func TestNewWorker(t *testing.T) {
+type WorkerSuite struct {
+	suite.Suite
+}
+
+func (s *WorkerSuite) SetupSuite() {
+	httpmock.Activate()
+	httpmock.ActivateNonDefault(httpClient)
+}
+
+func (s *WorkerSuite) TearDownTest() {
+	httpmock.Reset()
+}
+
+func (s *WorkerSuite) TearDownSuite() {
+	httpmock.DeactivateAndReset()
+}
+
+func (s *WorkerSuite) TestNewWorker() {
 	testCases := []struct {
 		downloadSize  int64
 		workerIndex   int
@@ -28,17 +48,59 @@ func TestNewWorker(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("Size: %d - Index: %d - Workers: %d", tc.downloadSize, tc.workerIndex, tc.workerCount), func(t *testing.T) {
+		s.Run(fmt.Sprintf("Size: %d - Index: %d - Workers: %d", tc.downloadSize, tc.workerIndex, tc.workerCount), func() {
 			worker := NewWorker(tc.workerIndex, &Download{Size: tc.downloadSize, Workers: make([]*Worker, tc.workerCount)})
 
-			assert.Equal(t, tc.workerIndex, worker.ID)
-			assert.Equal(t, tc.startingPoint, worker.StartingPoint)
-			assert.Equal(t, tc.endPoint, worker.EndPoint)
+			s.Equal(tc.workerIndex, worker.ID)
+			s.Equal(tc.startingPoint, worker.StartingPoint)
+			s.Equal(tc.endPoint, worker.EndPoint)
 		})
 	}
 }
 
-func TestWorker_filePath(t *testing.T) {
+func (s *WorkerSuite) TestWorker_Execute() {
+	ctx := context.TODO()
+	fs := &afero.Afero{Fs: afero.NewMemMapFs()}
+	cfg := &config.Config{ProgramFolder: "/home/user/.hget"}
+	cfg.Download.CopyNBytes = 250
+
+	id := "fdc134c5f503b1bd-go1.17.2.src.tar.gz"
+	url := "https://golang.org/dl/go1.17.2.src.tar.gz"
+	eTag := "test"
+
+	body := randBytes(51234)
+
+	do.ProvideValue[*config.Config](nil, cfg)
+	do.ProvideValue[*afero.Afero](nil, fs)
+
+	httpmock.RegisterResponder("GET", downloadURL, func(req *http.Request) (*http.Response, error) {
+		resp := httpmock.NewBytesResponse(200, body)
+		resp.Header.Set("ETag", eTag)
+		return resp, nil
+	})
+
+	worker := &Worker{
+		ID:            0,
+		StartingPoint: 0,
+		EndPoint:      int64(len(body)),
+		download:      &Download{ID: id, URL: url, ETag: eTag},
+	}
+
+	err := worker.Execute(ctx, nil)
+
+	// Assert that no error occurred.
+	s.NoError(err)
+
+	// Assert that the mocked endpoint was called.
+	s.Equal(1, httpmock.GetCallCountInfo()["GET "+downloadURL])
+
+	// Assert that the worker file exists and contains the response body.
+	file, err := fs.ReadFile("/home/user/.hget/downloads/fdc134c5f503b1bd-go1.17.2.src.tar.gz/worker.00000")
+	s.NoError(err)
+	s.Equal(file, body)
+}
+
+func (s *WorkerSuite) TestWorker_filePath() {
 	testCases := []struct {
 		downloadID string
 		workerID   int
@@ -53,22 +115,28 @@ func TestWorker_filePath(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.expected, func(t *testing.T) {
+		s.Run(tc.expected, func() {
 			do.ProvideValue[*config.Config](nil, &config.Config{ProgramFolder: "/home/user/.hget"})
 			worker := &Worker{ID: tc.workerID, download: &Download{ID: tc.downloadID}}
 
-			assert.Equal(t, "/home/user/.hget/downloads/"+tc.expected, worker.filePath())
+			s.Equal("/home/user/.hget/downloads/"+tc.expected, worker.filePath())
 		})
 	}
 }
 
-func TestWorker_fileSize(t *testing.T) {
+func (s *WorkerSuite) TestWorker_fileSize() {
 	fs := &afero.Afero{Fs: afero.NewMemMapFs()}
 	do.ProvideValue[*config.Config](nil, &config.Config{ProgramFolder: "/home/user/.hget"})
 	do.ProvideValue[*afero.Afero](nil, fs)
 
 	worker := &Worker{ID: 0, download: &Download{ID: "fdc134c5f503b1bd-go1.17.2.src.tar.gz"}}
-
 	_ = fs.WriteFile("/home/user/.hget/downloads/fdc134c5f503b1bd-go1.17.2.src.tar.gz/worker.00000", make([]byte, 51233), 0755)
-	assert.Equal(t, int64(51233), worker.fileSize())
+	s.Equal(int64(51233), worker.fileSize())
+
+	nonexistentWorker := &Worker{ID: 1, download: &Download{ID: "fdc134c5f503b1bd-go1.17.2.src.tar.gz"}}
+	s.Equal(int64(0), nonexistentWorker.fileSize())
+}
+
+func TestWorkerSuite(t *testing.T) {
+	suite.Run(t, new(WorkerSuite))
 }

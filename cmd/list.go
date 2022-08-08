@@ -3,7 +3,9 @@ package cmd
 import (
 	"github.com/MarcoTomasRodriguez/hget/internal/download"
 	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
+	"strings"
 )
 
 // listCmd represents the list command.
@@ -32,11 +34,10 @@ INFO: Saved downloads:
 		}
 
 		// List the saved downloads.
-		outputMessage := "Saved downloads:\n"
-		for _, d := range downloads {
-			outputMessage += d.String()
-		}
-		logger.Info(outputMessage)
+		downloadsString := lo.Map[*download.Download, string](downloads, func(d *download.Download, _ int) string {
+			return d.String()
+		})
+		logger.Info("Saved downloads:\n" + strings.Join(downloadsString, ""))
 	},
 }
 

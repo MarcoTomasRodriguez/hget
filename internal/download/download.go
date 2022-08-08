@@ -2,15 +2,16 @@ package download
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"github.com/cheggaaa/pb"
 	"github.com/fatih/color"
 	"github.com/pelletier/go-toml"
 	"github.com/samber/do"
+	"github.com/samber/lo"
 	"github.com/spf13/afero"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"math/rand"
 	"mime"
@@ -18,7 +19,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -34,12 +34,6 @@ var (
 	// ErrDownloadBroken is an error thrown when trying to fetch a broken download.
 	ErrDownloadBroken = errors.New("download is broken")
 )
-
-// httpClient is a custom client with tls insecure skip verify enabled.
-// TODO: Find a way to enable tls verify, and thus improve security, while allowing multithreading downloads.
-var httpClient = &http.Client{
-	Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
-}
 
 // randBytes generates an array with a specific downloadSize containing random data.
 func randBytes(size int) []byte {
@@ -114,6 +108,7 @@ type Download struct {
 }
 
 // NewDownload fetches the download url, obtains all the information required to start a download and finally returns the download struct.
+// TODO: Add tests.
 func NewDownload(downloadURL string, workerCount int) (*Download, error) {
 	// Resolve download url.
 	downloadURL, err := resolveURL(downloadURL)
@@ -122,14 +117,14 @@ func NewDownload(downloadURL string, workerCount int) (*Download, error) {
 	}
 
 	// Execute http request.
-	httpResponse, err := httpClient.Get(downloadURL)
+	httpResponse, err := http.Get(downloadURL)
 	if err != nil {
 		return nil, err
 	}
 	defer httpResponse.Body.Close()
 
 	// Extract Content-Length and Accept-Ranges from response headers.
-	contentLength, err := strconv.ParseInt(httpResponse.Header.Get("Content-Length"), 10, 64)
+	contentLength := httpResponse.ContentLength
 	acceptRanges := httpResponse.Header.Get("Accept-Ranges")
 	eTag := httpResponse.Header.Get("ETag")
 
@@ -164,8 +159,8 @@ func NewDownload(downloadURL string, workerCount int) (*Download, error) {
 		ID:        downloadID,
 		URL:       downloadURL,
 		Name:      downloadFilename,
-		Size:      contentLength,
 		ETag:      eTag,
+		Size:      contentLength,
 		Resumable: contentLength != 0, // Disable if Content-Length is not provided.
 		Workers:   make([]*Worker, workerCount),
 	}
@@ -179,12 +174,13 @@ func NewDownload(downloadURL string, workerCount int) (*Download, error) {
 }
 
 // GetDownload gets a download by his id.
+// TODO: Add tests.
 func GetDownload(downloadID string) (*Download, error) {
+	afs := do.MustInvoke[*afero.Afero](nil)
 	d := &Download{ID: downloadID, Resumable: true}
-	fs := do.MustInvoke[*afero.Afero](nil)
 
 	// Check if download folder exists.
-	if exists, _ := afero.DirExists(fs, d.FolderPath()); !exists {
+	if exists, _ := afero.DirExists(afs, d.FolderPath()); !exists {
 		return nil, ErrDownloadNotExist
 	}
 
@@ -203,8 +199,8 @@ func GetDownload(downloadID string) (*Download, error) {
 }
 
 // ListDownloads lists all the saved downloads.
+// TODO: Add tests.
 func ListDownloads() ([]*Download, error) {
-	var downloads []*Download
 	cfg := do.MustInvoke[*config.Config](nil)
 
 	// List elements inside the internal downloads' directory.
@@ -214,30 +210,29 @@ func ListDownloads() ([]*Download, error) {
 	}
 
 	// Iterate over the elements inside the task folder, and append to the downloads array if valid.
-	for _, downloadFolder := range downloadFolders {
+	downloads := lo.FilterMap(downloadFolders, func(fi fs.FileInfo, _ int) (*Download, bool) {
 		// A valid task should be located inside a directory.
-		if downloadFolder.IsDir() {
-			download, _ := GetDownload(downloadFolder.Name())
-
-			if download != nil {
-				downloads = append(downloads, download)
-			}
+		if fi.IsDir() {
+			download, _ := GetDownload(fi.Name())
+			return download, true
 		}
-	}
+
+		return nil, false
+	})
 
 	return downloads, nil
 }
 
 // Delete removes all related files with the download.
 func (d *Download) Delete() error {
-	fs := do.MustInvoke[*afero.Afero](nil)
-	return fs.RemoveAll(d.FolderPath())
+	afs := do.MustInvoke[*afero.Afero](nil)
+	return afs.RemoveAll(d.FolderPath())
 }
 
 // String returns a pretty string with the download's information.
 func (d *Download) String() string {
 	return fmt.Sprintln(
-		" ⁕ ", color.HiCyanString(d.ID), " ⇒ ",
+		" ⁕", color.HiCyanString(d.ID), "⇒",
 		color.HiCyanString("URL:"), d.URL,
 		color.HiCyanString("Size:"), fsutil.ReadableMemorySize(d.Size),
 	)
@@ -245,14 +240,14 @@ func (d *Download) String() string {
 
 // OutputFilePath returns an available output path for the download file.
 func (d *Download) OutputFilePath() string {
-	fs := do.MustInvoke[*afero.Afero](nil)
+	afs := do.MustInvoke[*afero.Afero](nil)
 	cfg := do.MustInvoke[*config.Config](nil)
 
 	filename := filepath.Join(cfg.Download.Folder, d.Name)
 
 	// If a download with the same name exists, add a number after the original name in parentheses.
 	// Example: go1.17.2.src.tar.gz => go1.17.2(1).src.tar.gz
-	if exists, _ := afero.Exists(fs, filename); exists {
+	if exists, _ := afs.Exists(filename); exists {
 		// Split download file name by ".".
 		parts := strings.Split(d.Name, ".")
 		count := 1
@@ -261,7 +256,7 @@ func (d *Download) OutputFilePath() string {
 			// Check if a filename with the current count already exists. If so, continue iterating until a filename
 			// is available.
 			filename = filepath.Join(cfg.Download.Folder, fmt.Sprintf("%s(%d).%s", parts[0], count, strings.Join(parts[1:], ".")))
-			if exists, _ := afero.Exists(fs, filename); !exists {
+			if exists, _ := afs.Exists(filename); !exists {
 				break
 			}
 
@@ -286,7 +281,7 @@ func (d *Download) FilePath() string {
 // Execute downloads the specified file.
 // This operation blocks the execution until it finishes or is cancelled by the context.
 func (d *Download) Execute(ctx context.Context) error {
-	fs := do.MustInvoke[*afero.Afero](nil)
+	afs := do.MustInvoke[*afero.Afero](nil)
 
 	// Initialize uplink channels.
 	errorChannel := make(chan error)
@@ -294,7 +289,7 @@ func (d *Download) Execute(ctx context.Context) error {
 	workerProgressBars := make([]*pb.ProgressBar, len(d.Workers))
 
 	// Create download folder with the default unix directory permissions: drwxr-xr-x.
-	if err := fs.MkdirAll(d.FolderPath(), 0755); err != nil {
+	if err := afs.MkdirAll(d.FolderPath(), 0755); err != nil {
 		return err
 	}
 
@@ -385,11 +380,11 @@ func (d *Download) Execute(ctx context.Context) error {
 
 // joinWorkers joins the worker files into the output file.
 func (d *Download) joinWorkers() error {
-	fs := do.MustInvoke[*afero.Afero](nil)
+	afs := do.MustInvoke[*afero.Afero](nil)
 
 	// Open output file in write-only mode with permissions: -rw-r--r--.
 	downloadFilepath := d.OutputFilePath()
-	downloadFile, err := fs.OpenFile(downloadFilepath, os.O_CREATE|os.O_WRONLY, 0644)
+	downloadFile, err := afs.OpenFile(downloadFilepath, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -406,7 +401,7 @@ func (d *Download) joinWorkers() error {
 	for _, w := range d.Workers {
 		err := func() error {
 			// Get worker reader.
-			workerReader, err := fs.Open(w.filePath())
+			workerReader, err := afs.Open(w.filePath())
 			if err != nil {
 				return err
 			}
