@@ -430,8 +430,11 @@ func (d *Download) joinWorkers() error {
 
 // attemptSave saves the download information inside a toml file if resumable, otherwise deletes the dangling files.
 func (d *Download) attemptSave() error {
+	afs := do.MustInvoke[*afero.Afero](nil)
+
 	// If not resumable, delete the dangling files.
 	if !d.Resumable {
+		// Note that it does not return an error if download is not resumable as this is an expected behaviour.
 		return d.Delete()
 	}
 
@@ -442,7 +445,7 @@ func (d *Download) attemptSave() error {
 	}
 
 	// Save download as a toml file with permissions: -rw-r--r--.
-	if err := ioutil.WriteFile(d.FilePath(), downloadToml, 0644); err != nil {
+	if err := afs.WriteFile(d.FilePath(), downloadToml, 0644); err != nil {
 		return err
 	}
 

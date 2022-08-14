@@ -10,6 +10,8 @@ import (
 	"github.com/samber/do"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/suite"
+	"log"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -41,6 +43,7 @@ func (s *DownloadSuite) SetupTest() {
 
 	do.ProvideValue[*config.Config](nil, cfg)
 	do.ProvideValue[*afero.Afero](nil, s.afs)
+	do.ProvideValue[*log.Logger](nil, log.New(os.Stdout, "", 0))
 }
 
 func (s *DownloadSuite) TearDownTest() {
@@ -145,13 +148,13 @@ func (s *DownloadSuite) TestDownload_Delete() {
 	s.NoError(d.Delete())
 
 	// Check that the download folder does not exist.
-	folderPathExists, err := s.afs.DirExists(folderPath)
-	s.False(folderPathExists)
+	folderExists, err := s.afs.DirExists(folderPath)
+	s.False(folderExists)
 	s.NoError(err)
 
 	// Check that the download object file does not exist.
-	downloadFileExists, err := s.afs.Exists(filepath.Join(folderPath, "download.toml"))
-	s.False(downloadFileExists)
+	fileExists, err := s.afs.Exists(filepath.Join(folderPath, "download.toml"))
+	s.False(fileExists)
 	s.NoError(err)
 }
 
@@ -168,6 +171,41 @@ func (s *DownloadSuite) TestDownload_FolderPath() {
 func (s *DownloadSuite) TestDownload_FilePath() {
 	d := &Download{ID: downloadID}
 	s.Equal(filepath.Join(programFolder, "downloads", downloadID, "download.toml"), d.FilePath())
+}
+
+func (s *DownloadSuite) TestDownload_attemptSave() {
+	d := &Download{ID: downloadID, Resumable: true}
+	dToml, _ := toml.Marshal(d)
+
+	// Assert that the download folder exists and the object file is written when it is resumable.
+	err := d.attemptSave()
+	s.NoError(err)
+
+	folderExists, err := s.afs.DirExists(d.FolderPath())
+	s.True(folderExists)
+	s.NoError(err)
+
+	fileContent, err := s.afs.ReadFile(d.FilePath())
+	s.Equal(dToml, fileContent)
+	s.NoError(err)
+}
+
+func (s *DownloadSuite) TestDownload_attemptSave_NotResumable() {
+	d := &Download{ID: downloadID, Resumable: false}
+	_ = s.afs.MkdirAll(d.FolderPath(), 0644)
+	_ = s.afs.WriteFile(d.FilePath(), []byte{}, 0644)
+
+	// Assert that the folder is cleaned when the download is not resumable.
+	err := d.attemptSave()
+	s.NoError(err)
+
+	folderExists, err := s.afs.DirExists(d.FolderPath())
+	s.False(folderExists)
+	s.NoError(err)
+
+	fileExists, err := s.afs.Exists(d.FilePath())
+	s.False(fileExists)
+	s.NoError(err)
 }
 
 func TestDownloadSuite(t *testing.T) {
