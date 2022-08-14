@@ -16,9 +16,9 @@ import (
 	"math/rand"
 	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -33,6 +33,8 @@ var (
 
 	// ErrDownloadBroken is an error thrown when trying to fetch a broken download.
 	ErrDownloadBroken = errors.New("download is broken")
+
+	urlRegex = regexp.MustCompile("(\\bhttps?://)?[-A-Za-z\\d+&@#/%?=~_|!:,.;]+[-A-Za-z\\d+&@#/%=~_|]")
 )
 
 // randBytes generates an array with a specific downloadSize containing random data.
@@ -45,32 +47,32 @@ func randBytes(size int) []byte {
 
 // resolveURL resolves the rawURL adding the http prefix, preferring https over http.
 func resolveURL(rawURL string) (string, error) {
-	// Parse the raw url.
-	parsedURL, err := url.Parse(rawURL)
-	if err != nil {
-		return "", err
-	}
+	match := urlRegex.FindStringSubmatch(rawURL)
 
 	// Check if rawURL is empty.
-	if parsedURL.String() == "" {
+	if len(match) < 2 {
 		return "", errors.New("url is empty")
 	}
 
-	// Check if a scheme is provided.
-	if parsedURL.Scheme == "https" || parsedURL.Scheme == "http" {
-		return parsedURL.String(), nil
+	// If scheme is provided, attempt to execute a request.
+	scheme := match[1]
+	if scheme != "" {
+		res, err := http.Get(rawURL)
+		if err != nil || res == nil {
+			return "", errors.New("server unavailable")
+		}
+
+		return rawURL, nil
 	}
 
 	// Resolve using https.
-	parsedURL.Scheme = "https"
-	if res, err := http.Get(parsedURL.String()); err == nil && res != nil {
-		return parsedURL.String(), nil
+	if url, err := resolveURL("https://" + rawURL); err == nil {
+		return url, nil
 	}
 
 	// Resolve using http.
-	parsedURL.Scheme = "http"
-	if res, err := http.Get(parsedURL.String()); err == nil && res != nil {
-		return parsedURL.String(), nil
+	if url, err := resolveURL("http://" + rawURL); err == nil {
+		return url, nil
 	}
 
 	return "", errors.New("cannot resolve raw url using https or http")
