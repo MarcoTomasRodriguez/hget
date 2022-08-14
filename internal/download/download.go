@@ -176,18 +176,17 @@ func NewDownload(downloadURL string, workerCount int) (*Download, error) {
 }
 
 // GetDownload gets a download by his id.
-// TODO: Add tests.
 func GetDownload(downloadID string) (*Download, error) {
 	afs := do.MustInvoke[*afero.Afero](nil)
 	d := &Download{ID: downloadID, Resumable: true}
 
 	// Check if download folder exists.
-	if exists, _ := afero.DirExists(afs, d.FolderPath()); !exists {
+	if exists, _ := afs.DirExists(d.FolderPath()); !exists {
 		return nil, ErrDownloadNotExist
 	}
 
 	// Read download file.
-	downloadFile, err := ioutil.ReadFile(d.FilePath())
+	downloadFile, err := afs.ReadFile(d.FilePath())
 	if err != nil {
 		return nil, ErrDownloadBroken
 	}
