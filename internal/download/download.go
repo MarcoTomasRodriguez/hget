@@ -34,6 +34,9 @@ var (
 	// ErrDownloadBroken is an error thrown when trying to fetch a broken download.
 	ErrDownloadBroken = errors.New("download is broken")
 
+	// ErrDownloadNotResumable is an error thrown when trying to save a non-resumable download.
+	ErrDownloadNotResumable = errors.New("download is not resumable")
+
 	urlRegex = regexp.MustCompile("(\\bhttps?://)?[-A-Za-z\\d+&@#/%?=~_|!:,.;]+[-A-Za-z\\d+&@#/%=~_|]")
 )
 
@@ -110,7 +113,6 @@ type Download struct {
 }
 
 // NewDownload fetches the download url, obtains all the information required to start a download and finally returns the download struct.
-// TODO: Add tests.
 func NewDownload(downloadURL string, workerCount int) (*Download, error) {
 	// Resolve download url.
 	downloadURL, err := resolveURL(downloadURL)
@@ -247,7 +249,7 @@ func (d *Download) OutputFilePath() string {
 	filename := filepath.Join(cfg.Download.Folder, d.Name)
 
 	// If a download with the same name exists, add a number after the original name in parentheses.
-	// Example: go1.17.2.src.tar.gz => go1.17.2(1).src.tar.gz
+	// Example: go1.17.2.src.tar.gz => go1.17.2.src.tar(1).gz
 	if exists, _ := afs.Exists(filename); exists {
 		// Split download file name by ".".
 		parts := strings.Split(d.Name, ".")
@@ -256,7 +258,7 @@ func (d *Download) OutputFilePath() string {
 		for {
 			// Check if a filename with the current count already exists. If so, continue iterating until a filename
 			// is available.
-			filename = filepath.Join(cfg.Download.Folder, fmt.Sprintf("%s(%d).%s", parts[0], count, strings.Join(parts[1:], ".")))
+			filename = filepath.Join(cfg.Download.Folder, fmt.Sprintf("%s(%d).%s", strings.Join(parts[:len(parts)-1], "."), count, parts[len(parts)-1]))
 			if exists, _ := afs.Exists(filename); !exists {
 				break
 			}
@@ -353,8 +355,12 @@ func (d *Download) Execute(ctx context.Context) error {
 		select {
 		case <-doneChannel:
 			if errors.Is(ctx.Err(), context.Canceled) {
-				// Attempt to save the download.
-				return d.attemptSave()
+				// If download is resumable, save it; otherwise, delete it.
+				if !d.Resumable {
+					return d.Delete()
+				}
+
+				return d.Save()
 			}
 
 			// Join Workers.
@@ -369,8 +375,12 @@ func (d *Download) Execute(ctx context.Context) error {
 
 			return nil
 		case err := <-errorChannel:
-			// Attempt to save the download.
-			if err := d.attemptSave(); err != nil {
+			// If download is resumable, save it; otherwise, delete it.
+			if !d.Resumable {
+				return d.Delete()
+			}
+
+			if err := d.Save(); err != nil {
 				logger.Error("Could not save download: %v", err)
 			}
 
@@ -428,14 +438,13 @@ func (d *Download) joinWorkers() error {
 	return nil
 }
 
-// attemptSave saves the download information inside a toml file if resumable, otherwise deletes the dangling files.
-func (d *Download) attemptSave() error {
+// Save saves the download information inside a toml file if resumable, otherwise returns an error.
+func (d *Download) Save() error {
 	afs := do.MustInvoke[*afero.Afero](nil)
 
-	// If not resumable, delete the dangling files.
+	// If it is non-resumable, return an error.
 	if !d.Resumable {
-		// Note that it does not return an error if download is not resumable as this is an expected behaviour.
-		return d.Delete()
+		return ErrDownloadNotResumable
 	}
 
 	// Parse download struct as toml.

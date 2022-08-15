@@ -10,8 +10,8 @@ import (
 	"github.com/samber/do"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/suite"
+	"io/ioutil"
 	"log"
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -43,7 +43,7 @@ func (s *DownloadSuite) SetupTest() {
 
 	do.ProvideValue[*config.Config](nil, cfg)
 	do.ProvideValue[*afero.Afero](nil, s.afs)
-	do.ProvideValue[*log.Logger](nil, log.New(os.Stdout, "", 0))
+	do.ProvideValue[*log.Logger](nil, log.New(ioutil.Discard, "", 0))
 }
 
 func (s *DownloadSuite) TearDownTest() {
@@ -77,6 +77,7 @@ func (s *DownloadSuite) TestResolveUrl() {
 		{rawURL: "http://localhost/files/test.txt", url: "http://localhost/files/test.txt", err: nil},
 		{rawURL: "https://234.112.93.22:4123", url: "", err: errors.New("server unavailable")},
 		{rawURL: "http://234.112.93.22:4123", url: "", err: errors.New("server unavailable")},
+		{rawURL: "234.112.93.22:4123", url: "", err: errors.New("cannot resolve raw url using https or http")},
 	}
 
 	for _, tc := range testCases {
@@ -163,6 +164,20 @@ func (s *DownloadSuite) TestDownload_OutputFilePath() {
 	s.Equal(filepath.Join(downloadFolder, downloadName), d.OutputFilePath())
 }
 
+func (s *DownloadSuite) TestDownload_OutputFilePath_AlreadyExists() {
+	d := &Download{Name: "go1.17.2.src.tar.gz"}
+
+	// Assert that it defaults to the download filename.
+	s.Equal(filepath.Join(downloadFolder, "go1.17.2.src.tar.gz"), d.OutputFilePath())
+
+	// Assert that it increments the file number.
+	_ = s.afs.WriteFile(filepath.Join(downloadFolder, "go1.17.2.src.tar.gz"), []byte{}, 0644)
+	s.Equal(filepath.Join(downloadFolder, "go1.17.2.src.tar(1).gz"), d.OutputFilePath())
+
+	_ = s.afs.WriteFile(filepath.Join(downloadFolder, "go1.17.2.src.tar(1).gz"), []byte{}, 0644)
+	s.Equal(filepath.Join(downloadFolder, "go1.17.2.src.tar(2).gz"), d.OutputFilePath())
+}
+
 func (s *DownloadSuite) TestDownload_FolderPath() {
 	d := &Download{ID: downloadID}
 	s.Equal(filepath.Join(programFolder, "downloads", downloadID), d.FolderPath())
@@ -173,12 +188,12 @@ func (s *DownloadSuite) TestDownload_FilePath() {
 	s.Equal(filepath.Join(programFolder, "downloads", downloadID, "download.toml"), d.FilePath())
 }
 
-func (s *DownloadSuite) TestDownload_attemptSave() {
+func (s *DownloadSuite) TestDownload_Save() {
 	d := &Download{ID: downloadID, Resumable: true}
 	dToml, _ := toml.Marshal(d)
 
 	// Assert that the download folder exists and the object file is written when it is resumable.
-	err := d.attemptSave()
+	err := d.Save()
 	s.NoError(err)
 
 	folderExists, err := s.afs.DirExists(d.FolderPath())
@@ -190,22 +205,11 @@ func (s *DownloadSuite) TestDownload_attemptSave() {
 	s.NoError(err)
 }
 
-func (s *DownloadSuite) TestDownload_attemptSave_NotResumable() {
+func (s *DownloadSuite) TestDownload_Save_NotResumable() {
 	d := &Download{ID: downloadID, Resumable: false}
-	_ = s.afs.MkdirAll(d.FolderPath(), 0644)
-	_ = s.afs.WriteFile(d.FilePath(), []byte{}, 0644)
 
-	// Assert that the folder is cleaned when the download is not resumable.
-	err := d.attemptSave()
-	s.NoError(err)
-
-	folderExists, err := s.afs.DirExists(d.FolderPath())
-	s.False(folderExists)
-	s.NoError(err)
-
-	fileExists, err := s.afs.Exists(d.FilePath())
-	s.False(fileExists)
-	s.NoError(err)
+	// Assert that save throws a not resumable error when trying to save it.
+	s.ErrorIs(ErrDownloadNotResumable, d.Save())
 }
 
 func TestDownloadSuite(t *testing.T) {
