@@ -8,6 +8,7 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/pelletier/go-toml"
 	"github.com/samber/do"
+	"github.com/samber/lo"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/suite"
 	"io/ioutil"
@@ -101,6 +102,35 @@ func (s *DownloadSuite) TestGetDownload() {
 	download, err := GetDownload(downloadID)
 	s.Equal(d, download)
 	s.NoError(err)
+}
+
+func (s *DownloadSuite) TestListDownloads() {
+	// TODO: Populate with more meaningful filenames.
+	downloads := []*Download{
+		{ID: "fdc134c5f503b1bd-go1.17.2.src.tar.gz", Resumable: true},
+		{ID: "fdc134c5f503b1b3-go1.17.2.src.tar.gz", Resumable: true},
+		{ID: "fdc134c5f503b1b5-go1.17.2.src.tar.gz", Resumable: true},
+	}
+
+	// Generate broken download.
+	brokenDownload := &Download{ID: "0000000000000000-go1.17.2.src.tar.gz", Resumable: false}
+	_ = s.afs.MkdirAll(brokenDownload.FolderPath(), 0644)
+	_ = s.afs.WriteFile(brokenDownload.FilePath(), []byte("broken download"), 0644)
+
+	// Save downloads.
+	lo.ForEach(downloads, func(d *Download, _ int) { _ = d.Save() })
+
+	// Assert that the function lists all the saved downloads.
+	listedDownloads, err := ListDownloads()
+	s.ElementsMatch(downloads, listedDownloads)
+	s.NoError(err)
+}
+
+func (s *DownloadSuite) TestListDownloads_NonexistentFolder() {
+	// Assert that the function throws an error if the download folder does not exist.
+	listedDownloads, err := ListDownloads()
+	s.Nil(listedDownloads)
+	s.Error(err)
 }
 
 func (s *DownloadSuite) TestGetDownload_NotExists() {

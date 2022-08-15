@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/afero"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"math/rand"
 	"mime"
 	"net/http"
@@ -204,23 +203,23 @@ func GetDownload(downloadID string) (*Download, error) {
 // ListDownloads lists all the saved downloads.
 // TODO: Add tests.
 func ListDownloads() ([]*Download, error) {
+	afs := do.MustInvoke[*afero.Afero](nil)
 	cfg := do.MustInvoke[*config.Config](nil)
 
 	// List elements inside the internal downloads' directory.
-	downloadFolders, err := ioutil.ReadDir(cfg.DownloadFolder())
+	downloadFolders, err := afs.ReadDir(cfg.DownloadFolder())
 	if err != nil {
 		return nil, err
 	}
 
-	// Iterate over the elements inside the task folder, and append to the downloads array if valid.
+	// Iterate over the elements inside the download folder and read them.
 	downloads := lo.FilterMap(downloadFolders, func(fi fs.FileInfo, _ int) (*Download, bool) {
-		// A valid task should be located inside a directory.
-		if fi.IsDir() {
-			download, _ := GetDownload(fi.Name())
-			return download, true
+		download, err := GetDownload(fi.Name())
+		if err != nil {
+			return nil, false
 		}
 
-		return nil, false
+		return download, true
 	})
 
 	return downloads, nil
