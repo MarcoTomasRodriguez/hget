@@ -32,19 +32,17 @@ func (config *Config) DownloadFolder() string {
 }
 
 // NewConfig initializes the config object from a toml file.
-func NewConfig(filename string) *Config {
+func NewConfig(filename string) (*Config, error) {
 	// Get home directory.
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "ERROR: could not get home directory %v\n", err)
-		panic(err)
+		return nil, fmt.Errorf("could not get home directory: %v", err)
 	}
 
 	// Get working directory.
 	workingDir, err := os.Getwd()
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "ERROR: could not get working directory %v\n", err)
-		panic(err)
+		return nil, fmt.Errorf("could not get working directory: %v", err)
 	}
 
 	// Set defaults.
@@ -60,31 +58,27 @@ func NewConfig(filename string) *Config {
 
 		// Read config.
 		if err := viper.ReadInConfig(); err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "ERROR: Unable to read configuration file: %v\n", err)
-			panic(err)
+			return nil, fmt.Errorf("unable to read configuration file: %v", err)
 		}
 	}
 
 	// Unmarshal configuration into the shared config struct.
 	cfg := &Config{}
 	if err := viper.Unmarshal(cfg); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "ERROR: Unable to decode configuration into struct: %v\n", err)
-		panic(err)
+		return nil, fmt.Errorf("unable to decode configuration into struct: %v", err)
 	}
 
 	// Validate configuration.
 	if cfg.Download.CopyNBytes < 0 {
-		_, _ = fmt.Fprintf(os.Stderr, "ERROR: CopyNBytes should be greater than 0\n")
-		panic(err)
+		return nil, fmt.Errorf("CopyNBytes should be greater than 0: %v", err)
 	}
 
 	if cfg.LogLevel > 2 {
-		_, _ = fmt.Fprintf(os.Stderr, "ERROR: LogLevel should be between 0 and 2\n")
-		panic(err)
+		return nil, fmt.Errorf("LogLevel should be between 0 and 2: %v", err)
 	}
 
 	// Create internal program folders.
 	_ = os.MkdirAll(filepath.Join(cfg.ProgramFolder, "downloads"), 0755)
 
-	return cfg
+	return cfg, nil
 }

@@ -36,10 +36,13 @@ download threads and to stop and resume tasks.
 		ctx := console.CancelableContext(context.Background())
 
 		// Get number of workers from flags.
-		// TODO: Add worker limit.
 		workers, err := cmd.Flags().GetInt("workers")
 		if err != nil {
 			logger.Error("Could not get number of workers from flags.")
+			return
+		}
+		if workers > 100 {
+			logger.Error("Maximum workers limit (100) exceeded.")
 			return
 		}
 
@@ -64,7 +67,12 @@ func Execute() {
 
 func initializeDependencies() {
 	configPath, _ := rootCmd.PersistentFlags().GetString("config_path")
-	do.ProvideValue[*config.Config](nil, config.NewConfig(configPath))
+	cfg, err := config.NewConfig(configPath)
+	if err != nil {
+		panic(err)
+	}
+
+	do.ProvideValue[*config.Config](nil, cfg)
 	do.ProvideValue[*log.Logger](nil, log.New(os.Stdout, "", 0))
 	do.ProvideValue[*afero.Afero](nil, &afero.Afero{Fs: afero.NewOsFs()})
 }
