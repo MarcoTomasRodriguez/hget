@@ -18,12 +18,9 @@
     <a href="https://github.com/othneildrew/Best-README-Template/issues">Request Feature</a>
     <br />
     <br />
-    <a href="https://opensource.org/licenses/MIT">
-      <img src="https://img.shields.io/badge/License-MIT-blue.svg">
-    </a>
-    <a href="https://github.com/MarcoTomasRodriguez/hget/workflows/CI">
-      <img src="https://github.com/MarcoTomasRodriguez/hget/workflows/CI/badge.svg">
-    </a>
+    <img src="https://img.shields.io/github/license/marcotomasrodriguez/hget?label=Licence&style=flat-square&color=blue">
+    <img src="https://img.shields.io/github/release/marcotomasrodriguez/hget?display_name=tag&sort=semver&label=Release&style=flat-square&color=blue">
+    <img src="https://img.shields.io/github/workflow/status/marcotomasrodriguez/hget/test?label=Tests&style=flat-square">
   </p>
 </div>
 
