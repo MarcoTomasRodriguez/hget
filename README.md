@@ -8,10 +8,10 @@
   <p align="center">
     Interruptible and resumable download accelerator.
     <br />
-    <a href="https://github.com/marcotomasrodriguez/hget"><strong>Explore the docs »</strong></a>
+    <a href="https://github.com/MarcoTomasRodriguez/hget#description"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/marcotomasrodriguez/hget">View Demo</a>
+    <a href="https://github.com/marcotomasrodriguez/hget#usage">View Demo</a>
     ·
     <a href="https://github.com/marcotomasrodriguez/hget/issues">Report Bug</a>
     ·
