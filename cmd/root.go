@@ -1,18 +1,22 @@
 package cmd
 
 import (
+	"context"
+	"github.com/MarcoTomasRodriguez/hget/internal/config"
+	"github.com/samber/do"
+	"github.com/spf13/afero"
+	"log"
 	"math/rand"
 	"time"
 
-	"github.com/MarcoTomasRodriguez/hget/config"
-	"github.com/MarcoTomasRodriguez/hget/download"
-	"github.com/MarcoTomasRodriguez/hget/logger"
+	"github.com/MarcoTomasRodriguez/hget/internal/download"
+	"github.com/MarcoTomasRodriguez/hget/pkg/console"
+	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
 
 	"os"
 	"path/filepath"
 	"runtime"
 
-	"github.com/MarcoTomasRodriguez/hget/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -29,24 +33,28 @@ download threads and to stop and resume tasks.
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Create application context.
-		ctx := utils.ConsoleCancelableContext()
+		ctx := console.CancelableContext(context.Background())
 
 		// Get number of workers from flags.
-		workers, err := cmd.Flags().GetUint16("workers")
+		workers, err := cmd.Flags().GetInt("workers")
 		if err != nil {
-			logger.LogError("Could not get number of workers from flags.")
+			logger.Error("Could not get number of workers from flags.")
+			return
+		}
+		if workers > 100 {
+			logger.Error("Maximum workers limit (100) exceeded.")
 			return
 		}
 
 		// Start download.
 		d, err := download.NewDownload(args[0], workers)
 		if err != nil {
-			logger.LogError("Could not start download: %v", err)
+			logger.Error("Could not start download: %v", err)
 			return
 		}
 
 		if err := d.Execute(ctx); err != nil {
-			logger.LogError("An error ocurred while downloading: %v", err)
+			logger.Error("An error occurred while downloading: %v", err)
 		}
 	},
 }
@@ -57,21 +65,34 @@ func Execute() {
 	cobra.CheckErr(rootCmd.Execute())
 }
 
+func initializeDependencies() {
+	configPath, _ := rootCmd.PersistentFlags().GetString("config_path")
+	cfg, err := config.NewConfig(configPath)
+	if err != nil {
+		panic(err)
+	}
+
+	do.ProvideValue[*config.Config](nil, cfg)
+	do.ProvideValue[*log.Logger](nil, log.New(os.Stdout, "", 0))
+	do.ProvideValue[*afero.Afero](nil, &afero.Afero{Fs: afero.NewOsFs()})
+}
+
 func init() {
 	// Seed math/rand.
 	rand.Seed(time.Now().UnixNano())
 
-	// Initialize config.
-	cobra.OnInitialize(config.LoadConfig)
-
 	// Define config global flag.
 	homeDir, _ := os.UserHomeDir()
-	rootCmd.PersistentFlags().StringVar(&config.Filepath, "config", filepath.Join(homeDir, ".hget/config.toml"), "Set config file.")
+	configPath := filepath.Join(homeDir, ".hget/config.toml")
+	rootCmd.PersistentFlags().String("config_path", configPath, "Set the configuration path.")
 
 	// Define log level global flag.
-	rootCmd.PersistentFlags().Uint8("log", uint8(2), "Set log level: 0 means no logs, 1 only important logs and 2 all logs.")
+	rootCmd.PersistentFlags().Int("log", 2, "Set log level: 0 means no logs, 1 only important logs and 2 all logs.")
 	_ = viper.BindPFlag("log_level", rootCmd.PersistentFlags().Lookup("log"))
 
 	// Define worker numbers flag.
-	rootCmd.Flags().Uint16P("workers", "n", uint16(runtime.NumCPU()), "Set number of download workers.")
+	rootCmd.Flags().IntP("workers", "n", runtime.NumCPU(), "Set number of download workers.")
+
+	// Initialize dependencies.
+	cobra.OnInitialize(initializeDependencies)
 }

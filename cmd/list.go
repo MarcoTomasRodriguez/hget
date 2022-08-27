@@ -1,9 +1,11 @@
 package cmd
 
 import (
-	"github.com/MarcoTomasRodriguez/hget/download"
-	"github.com/MarcoTomasRodriguez/hget/logger"
+	"github.com/MarcoTomasRodriguez/hget/internal/download"
+	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
+	"strings"
 )
 
 // listCmd represents the list command.
@@ -21,22 +23,21 @@ INFO: Saved downloads:
 		// List downloads.
 		downloads, err := download.ListDownloads()
 		if err != nil {
-			logger.LogError("Could not list downloads: %v", err)
+			logger.Error("Could not list downloads: %v", err)
 			return
 		}
 
 		// Check if there are no saved downloads.
 		if len(downloads) == 0 {
-			logger.LogInfo("There are no saved downloads.")
+			logger.Info("There are no saved downloads.")
 			return
 		}
 
 		// List the saved downloads.
-		outputMessage := "Saved downloads:\n"
-		for _, d := range downloads {
-			outputMessage += d.String()
-		}
-		logger.LogInfo(outputMessage)
+		downloadsString := lo.Map[*download.Download, string](downloads, func(d *download.Download, _ int) string {
+			return d.String()
+		})
+		logger.Info("Saved downloads:\n" + strings.Join(downloadsString, ""))
 	},
 }
 

@@ -1,11 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 
-	"github.com/MarcoTomasRodriguez/hget/download"
-	"github.com/MarcoTomasRodriguez/hget/logger"
-	"github.com/MarcoTomasRodriguez/hget/utils"
+	"github.com/MarcoTomasRodriguez/hget/internal/download"
+	"github.com/MarcoTomasRodriguez/hget/pkg/console"
+	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
 
 	"github.com/spf13/cobra"
 )
@@ -21,25 +22,25 @@ $ hget resume 01cc0f0a3d94af18-file1.txt`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Create application context.
-		ctx := utils.ConsoleCancelableContext()
+		ctx := console.CancelableContext(context.Background())
 
 		// Read download file.
 		d, err := download.GetDownload(args[0])
 
 		if err == nil {
 			if err := d.Execute(ctx); err != nil {
-				logger.LogError("An error ocurred while downloading: %v", err)
+				logger.Error("An error occurred while downloading: %v", err)
 			}
-		} else if errors.Is(err, utils.ErrDownloadNotExist) {
-			logger.LogError("Download does not exist.")
-		} else if errors.Is(err, utils.ErrDownloadBroken) {
-			logger.LogError("Download is broken, and thus will be removed.")
+		} else if errors.Is(err, download.ErrDownloadNotExist) {
+			logger.Error("Download does not exist.")
+		} else if errors.Is(err, download.ErrDownloadBroken) {
+			logger.Error("Download is broken, and thus will be removed.")
 
-			if err := download.DeleteDownload(args[0]); err != nil {
-				logger.LogError("Could not delete saved download: %v", err)
+			if err := d.Delete(); err != nil {
+				logger.Error("Could not delete saved download: %v", err)
 			}
 		} else {
-			logger.LogError("Unknown error: %v", err)
+			logger.Error("Unknown error: %v", err)
 		}
 	},
 }
