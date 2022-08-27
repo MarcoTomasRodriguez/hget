@@ -59,7 +59,6 @@ func NewWorker(workerIndex int, download *Download) *Worker {
 }
 
 // Execute starts the worker's segment download blocking the execution, hence it must be called inside a goroutine.
-// TODO: Add tests.
 func (w *Worker) Execute(ctx context.Context, bar *pb.ProgressBar) error {
 	afs := do.MustInvoke[*afero.Afero](nil)
 	cfg := do.MustInvoke[*config.Config](nil)

@@ -131,9 +131,16 @@ func NewDownload(downloadURL string, workerCount int) (*Download, error) {
 	acceptRanges := httpResponse.Header.Get("Accept-Ranges")
 	eTag := httpResponse.Header.Get("ETag")
 
+	// Check if resumable downloads are supported.
+	resumable := true
+	if contentLength == -1 {
+		logger.Warn("Resumable downloads are not supported by the server")
+		resumable = false
+	}
+
 	// In order for range downloads to work, they should be supported and the content length be provided.
-	if contentLength == 0 || acceptRanges == "" || acceptRanges == "none" {
-		logger.Warn("Range downloads are not supported by the server: setting worker count to 1")
+	if contentLength == -1 || acceptRanges != "bytes" {
+		logger.Warn("Range downloads are not supported by the server")
 		workerCount = 1
 	}
 
@@ -164,7 +171,7 @@ func NewDownload(downloadURL string, workerCount int) (*Download, error) {
 		Name:      downloadFilename,
 		ETag:      eTag,
 		Size:      contentLength,
-		Resumable: contentLength != 0, // Disable if Content-Length is not provided.
+		Resumable: resumable,
 		Workers:   make([]*Worker, workerCount),
 	}
 
@@ -201,7 +208,6 @@ func GetDownload(downloadID string) (*Download, error) {
 }
 
 // ListDownloads lists all the saved downloads.
-// TODO: Add tests.
 func ListDownloads() ([]*Download, error) {
 	afs := do.MustInvoke[*afero.Afero](nil)
 	cfg := do.MustInvoke[*config.Config](nil)

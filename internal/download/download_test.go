@@ -1,6 +1,7 @@
 package download
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/MarcoTomasRodriguez/hget/internal/config"
@@ -11,8 +12,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/suite"
+	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"path/filepath"
 	"testing"
 )
@@ -90,6 +93,52 @@ func (s *DownloadSuite) TestResolveUrl() {
 	}
 }
 
+func (s *DownloadSuite) TestNewDownload() {
+	testCases := []struct {
+		name            string
+		contentLength   int64
+		eTag            string
+		acceptRanges    string
+		expectWorkers   int
+		expectResumable bool
+	}{
+		{"", 1000, "33a64df551425fcc55e4d42a148795d9f25f89d4", "bytes", 8, true},
+		{"", 1000, "", "bytes", 8, true},
+		{"", 1000, "", "", 1, true},
+		{"", -1, "", "", 1, false},
+	}
+
+	for _, tc := range testCases {
+		s.Run(fmt.Sprintf("Raw URL: %s", tc.name), func() {
+			httpmock.RegisterResponder("GET", "https://server.com/files/test.txt", func(request *http.Request) (*http.Response, error) {
+				header := http.Header{}
+				header.Set("ETag", tc.eTag)
+				header.Set("Accept-Ranges", tc.acceptRanges)
+				size := tc.contentLength
+				if size < 0 {
+					size = 0
+				}
+
+				body := io.NopCloser(bytes.NewBuffer(make([]byte, size)))
+
+				return &http.Response{ContentLength: tc.contentLength, Body: body, Header: header}, nil
+			})
+
+			d, err := NewDownload("server.com/files/test.txt", 8)
+
+			s.Contains(d.ID, "test.txt")
+			s.Equal("https://server.com/files/test.txt", d.URL)
+			s.Equal("test.txt", d.Name)
+			s.Equal(tc.contentLength, d.Size)
+			s.Equal(tc.eTag, d.ETag)
+			s.Equal(tc.expectResumable, d.Resumable)
+			s.Len(d.Workers, tc.expectWorkers)
+			lo.ForEach(d.Workers, func(w *Worker, i int) { s.Equal(NewWorker(i, d), w) })
+			s.NoError(err)
+		})
+	}
+}
+
 func (s *DownloadSuite) TestGetDownload() {
 	// Create download object and populate the directory with valid data.
 	d := &Download{ID: downloadID, Resumable: true}
@@ -105,11 +154,10 @@ func (s *DownloadSuite) TestGetDownload() {
 }
 
 func (s *DownloadSuite) TestListDownloads() {
-	// TODO: Populate with more meaningful filenames.
 	downloads := []*Download{
 		{ID: "fdc134c5f503b1bd-go1.17.2.src.tar.gz", Resumable: true},
-		{ID: "fdc134c5f503b1b3-go1.17.2.src.tar.gz", Resumable: true},
-		{ID: "fdc134c5f503b1b5-go1.17.2.src.tar.gz", Resumable: true},
+		{ID: "7PLAIuQ498e3X9oq-google-chrome.dmg", Resumable: true},
+		{ID: "ofUsa6KJhrWdVZp4-Git-2.37.2.2-64-bit.ext", Resumable: true},
 	}
 
 	// Generate broken download.
