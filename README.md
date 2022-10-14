@@ -30,7 +30,7 @@ hget allows you to download files at maximum speed using workers (goroutines), a
 
 It takes advantage of the `Range` header, allowing many workers to download in parallel a file. That said, it is not a Swiss Army Knife: if there is no bottleneck in the server, it is probably better to use just 1 download worker; else, you should set the number of workers to the minimum value that allows you to download at the maximum of your internet speed.
 
-For example, if the client can download 100MB/s and the server only provides you 10MB/s per worker, then it would be wise to use ~10 download workers. Nevertheless, if the client has 10MB/s and the server provides you >10MB/s, there is no need to use more than 1.
+For example, if the client can download 100MB/s and the server only provides you 10MB/s per worker, then it would be wise to use ~10 download workers (beware of context switching). Nevertheless, if the client has 10MB/s and the server provides you >10MB/s, there is no need to use more than 1.
 
 Other features of this software are,
 
