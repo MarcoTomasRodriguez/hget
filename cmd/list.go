@@ -4,7 +4,9 @@ import (
 	"github.com/MarcoTomasRodriguez/hget/internal/download"
 	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
 	"github.com/samber/lo"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"strings"
 )
 
@@ -20,8 +22,14 @@ INFO: Saved downloads:
  ⁕  9218d55b6ba5da11-go1.17.2.src.tar.gz  ⇒  URL: https://golang.org/dl/go1.17.2.src.tar.gz Size: 21.2 MB
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		logger := logger.NewConsoleLogger()
+		fs := afero.NewBasePathFs(afero.NewOsFs(), viper.GetString(ProgramFolderKey))
+
+		// Initialize manager.
+		manager := download.NewManager(fs)
+
 		// List downloads.
-		downloads, err := download.ListDownloads()
+		downloads, err := manager.ListDownloads()
 		if err != nil {
 			logger.Error("Could not list downloads: %v", err)
 			return
@@ -34,9 +42,10 @@ INFO: Saved downloads:
 		}
 
 		// List the saved downloads.
-		downloadsString := lo.Map[*download.Download, string](downloads, func(d *download.Download, _ int) string {
+		downloadsString := lo.Map(downloads, func(d *download.Download, _ int) string {
 			return d.String()
 		})
+
 		logger.Info("Saved downloads:\n" + strings.Join(downloadsString, ""))
 	},
 }

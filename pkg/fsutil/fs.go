@@ -11,18 +11,10 @@ const (
 	MB = SI * KB
 	GB = SI * MB
 	TB = SI * GB
-	PB = SI * TB
 )
 
 type Number interface {
 	uint | uint16 | uint32 | uint64 | int | int16 | int32 | int64
-}
-
-// ValidateFilename checks the validity of a filename.
-func ValidateFilename(filename string) bool {
-	valid, _ := regexp.MatchString("^(\\w+[\\w\\-.]+\\.\\w+){1,255}$", filename)
-
-	return valid
 }
 
 // ReadableMemorySize returns a prettier form of some memory size expressed in bytes.
@@ -39,4 +31,11 @@ func ReadableMemorySize[T Number](bytes T) string {
 	}
 
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "kMGTPE"[exp])
+}
+
+// ValidateFilename checks the validity of a filename.
+func ValidateFilename(filename string) bool {
+	valid, _ := regexp.MatchString("^(\\w+[\\w\\-. ]+\\.\\w+){1,255}$", filename)
+
+	return valid
 }
