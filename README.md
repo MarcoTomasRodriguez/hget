@@ -26,7 +26,7 @@
 
 ## Description
 
-hget allows you to download files at maximum speed using workers (goroutines), and shines when the bottleneck is on the server, rather than the client.
+hget is a command-line tool written in Go that downloads files at maximum speed by using range downloads with multiple workers and shines when the bottleneck is on the server.
 
 It takes advantage of the `Range` header, allowing many workers to download in parallel a file. That said, it is not a Swiss Army Knife: if there is no bottleneck in the server, it is probably better to use just 1 download worker; else, you should set the number of workers to the minimum value that allows you to download at the maximum of your internet speed.
 
