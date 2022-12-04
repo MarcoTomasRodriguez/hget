@@ -82,16 +82,6 @@ func (s *DownloaderSuite) TestNewDownload_ShouldFailIfInvalidFilename() {
 	s.EqualError(err, "invalid filename")
 }
 
-func (s *DownloaderSuite) TestNewDownload_ShouldFailIfInvalidFilenameEscape() {
-	url := "https://go.dev/dl/-inv%ZZalid.filename"
-	httputil.RegisterResponder(url, make([]byte, golangSample.Size), http.Header{})
-
-	download, err := NewDownload(url, 8)
-
-	s.Nil(download)
-	s.EqualError(err, "invalid filename")
-}
-
 func (s *DownloaderSuite) TestNewDownload_ShouldDisableRangeDownload() {
 	httputil.RegisterResponder(golangSample.URL, make([]byte, golangSample.Size), http.Header{})
 

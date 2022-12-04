@@ -114,10 +114,6 @@ func (s *ManagerSuite) TestManager_StartDownload() {
 	manager := NewManager(fs)
 	download, _ := NewDownload(javaSample.URL, 4)
 
-	for _, segment := range download.Segments {
-		println(segment.Start, segment.End)
-	}
-
 	err := manager.StartDownload(download, ctx)
 	s.NoError(err)
 

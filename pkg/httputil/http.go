@@ -54,8 +54,6 @@ func ResolveURL(rawURL string) (string, error) {
 }
 
 func RegisterResponder(url string, body []byte, header http.Header) {
-	println(len(body), url)
-
 	httpmock.RegisterResponder("GET", url, func(request *http.Request) (*http.Response, error) {
 		start := 0
 		end := len(body)
