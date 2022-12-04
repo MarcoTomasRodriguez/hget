@@ -1,4 +1,4 @@
-package console
+package ctxutil
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"syscall"
 )
 
-// CancelableContext creates a context that can be canceled from the console.
+// NewCancelableContext creates a ctxutil that can be canceled from the logger.
 // For example, by typing Ctrl + C.
-func CancelableContext(ctx context.Context) context.Context {
+func NewCancelableContext(ctx context.Context) context.Context {
 	ctx, cancel := context.WithCancel(ctx)
 
 	sig := make(chan os.Signal, 1)

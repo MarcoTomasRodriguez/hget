@@ -2,23 +2,24 @@ package cmd
 
 import (
 	"context"
-	"github.com/MarcoTomasRodriguez/hget/internal/config"
-	"github.com/samber/do"
+	"github.com/MarcoTomasRodriguez/hget/internal/download"
+	"github.com/MarcoTomasRodriguez/hget/pkg/ctxutil"
 	"github.com/spf13/afero"
-	"log"
 	"math/rand"
 	"time"
 
-	"github.com/MarcoTomasRodriguez/hget/internal/download"
-	"github.com/MarcoTomasRodriguez/hget/pkg/console"
 	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
-
 	"os"
 	"path/filepath"
 	"runtime"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+)
+
+const (
+	ProgramFolderKey  = "program_folder"
+	DownloadFolderKey = "download_folder"
 )
 
 // rootCmd represents the base command when called without any subcommands.
@@ -32,29 +33,39 @@ download threads and to stop and resume tasks.
 `,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// Create application context.
-		ctx := console.CancelableContext(context.Background())
+		fs := afero.NewBasePathFs(afero.NewOsFs(), viper.GetString("program_folder"))
+		ctx := ctxutil.NewCancelableContext(context.Background())
+		logger := logger.NewConsoleLogger()
 
 		// Get number of workers from flags.
-		workers, err := cmd.Flags().GetInt("workers")
+		workers, _ := cmd.Flags().GetUint8("workers")
+
+		// Initialize downloader.
+		m := download.NewManager(fs)
+
+		// NewDownload download.
+		download, err := download.NewDownload(args[0], workers)
 		if err != nil {
-			logger.Error("Could not get number of workers from flags.")
-			return
-		}
-		if workers > 100 {
-			logger.Error("Maximum workers limit (100) exceeded.")
+			logger.Error(err.Error())
 			return
 		}
 
 		// Start download.
-		d, err := download.NewDownload(args[0], workers)
-		if err != nil {
-			logger.Error("Could not start download: %v", err)
+		if err := m.StartDownload(download, ctx); err != nil {
+			logger.Error(err.Error())
 			return
 		}
 
-		if err := d.Execute(ctx); err != nil {
-			logger.Error("An error occurred while downloading: %v", err)
+		// Move download to output folder.
+		if err := os.Rename(filepath.Join(viper.GetString("download_folder"), download.Id, download.Name), download.Name); err != nil {
+			logger.Error(err.Error())
+			return
+		}
+
+		// Delete program download folder.
+		if err := m.DeleteDownloadById(download.Id); err != nil {
+			logger.Error(err.Error())
+			return
 		}
 	},
 }
@@ -65,34 +76,25 @@ func Execute() {
 	cobra.CheckErr(rootCmd.Execute())
 }
 
-func initializeDependencies() {
-	configPath, _ := rootCmd.PersistentFlags().GetString("config_path")
-	cfg, err := config.NewConfig(configPath)
-	if err != nil {
-		panic(err)
-	}
-
-	do.ProvideValue[*config.Config](nil, cfg)
-	do.ProvideValue[*log.Logger](nil, log.New(os.Stdout, "", 0))
-	do.ProvideValue[*afero.Afero](nil, &afero.Afero{Fs: afero.NewOsFs()})
-}
-
 func init() {
 	// Seed math/rand.
 	rand.Seed(time.Now().UnixNano())
 
-	// Define config global flag.
+	// Define program folder global flag.
 	homeDir, _ := os.UserHomeDir()
-	configPath := filepath.Join(homeDir, ".hget/config.toml")
-	rootCmd.PersistentFlags().String("config_path", configPath, "Set the configuration path.")
+	defaultProgramFolder := filepath.Join(homeDir, ".hget")
+	rootCmd.PersistentFlags().String(ProgramFolderKey, defaultProgramFolder, "Configures the program folder.")
+	_ = viper.BindPFlag(ProgramFolderKey, rootCmd.PersistentFlags().Lookup(ProgramFolderKey))
+
+	// Define download folder global flag.
+	defaultDownloadFolder := filepath.Join(homeDir, ".hget/downloads")
+	rootCmd.PersistentFlags().String(DownloadFolderKey, defaultDownloadFolder, "Configures the download folder.")
+	_ = viper.BindPFlag(DownloadFolderKey, rootCmd.PersistentFlags().Lookup(DownloadFolderKey))
 
 	// Define log level global flag.
 	rootCmd.PersistentFlags().Int("log", 2, "Set log level: 0 means no logs, 1 only important logs and 2 all logs.")
 	_ = viper.BindPFlag("log_level", rootCmd.PersistentFlags().Lookup("log"))
 
 	// Define worker numbers flag.
-	rootCmd.Flags().IntP("workers", "n", runtime.NumCPU(), "Set number of download workers.")
-
-	// Initialize dependencies.
-	cobra.OnInitialize(initializeDependencies)
+	rootCmd.Flags().Uint8P("workers", "n", uint8(runtime.NumCPU()), "Set number of download workers.")
 }

@@ -1,10 +1,11 @@
 package cmd
 
 import (
-	"errors"
 	"github.com/MarcoTomasRodriguez/hget/internal/download"
 	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // removeCmd represents the remove command.
@@ -19,16 +20,14 @@ INFO: download removed successfully.
 `,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		d, err := download.GetDownload(args[0])
+		logger := logger.NewConsoleLogger()
+		fs := afero.NewBasePathFs(afero.NewOsFs(), viper.GetString(DownloadFolderKey))
 
-		// Check if download does not exist.
-		if errors.Is(err, download.ErrDownloadNotExist) {
-			logger.Error("Download does not exist.")
-			return
-		}
+		// Initialize manager.
+		manager := download.NewManager(fs)
 
-		// Remove download.
-		if err := d.Delete(); err != nil {
+		// Delete download using first command line argument as id.
+		if err := manager.DeleteDownloadById(args[0]); err != nil {
 			logger.Error("Could not remove download: %v", err)
 			return
 		}

@@ -2,32 +2,27 @@ package logger
 
 import (
 	"bytes"
-	"github.com/samber/do"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"log"
-	"os"
 	"testing"
 )
 
 type LoggerSuite struct {
 	suite.Suite
-	buffer bytes.Buffer
+	tl  *Logger
+	buf bytes.Buffer
 }
 
 func (s *LoggerSuite) SetupSuite() {
-	do.ProvideValue[*log.Logger](nil, log.New(&s.buffer, "", 0))
+	s.tl = &Logger{logger: log.New(&s.buf, "", 0)}
 }
 
 func (s *LoggerSuite) SetupTest() {
-	s.buffer.Reset()
+	s.buf.Reset()
 }
 
-func (s *LoggerSuite) TearDownSuite() {
-	do.ProvideValue[*log.Logger](nil, log.New(os.Stdout, "", 0))
-}
-
-func (s *LoggerSuite) TestInfo() {
+func (s *LoggerSuite) TestLogger_Info() {
 	testCases := []struct {
 		message  string
 		args     []any
@@ -42,13 +37,13 @@ func (s *LoggerSuite) TestInfo() {
 
 	for _, tc := range testCases {
 		s.Run(tc.expected, func() {
-			Info(tc.message, tc.args...)
-			assert.Equal(s.T(), s.buffer.String(), tc.expected)
+			s.tl.Info(tc.message, tc.args...)
+			assert.Equal(s.T(), s.buf.String(), tc.expected)
 		})
 	}
 }
 
-func (s *LoggerSuite) TestWarn() {
+func (s *LoggerSuite) TestLogger_Warn() {
 	testCases := []struct {
 		message  string
 		args     []any
@@ -63,13 +58,13 @@ func (s *LoggerSuite) TestWarn() {
 
 	for _, tc := range testCases {
 		s.Run(tc.expected, func() {
-			Warn(tc.message, tc.args...)
-			assert.Equal(s.T(), s.buffer.String(), tc.expected)
+			s.tl.Warn(tc.message, tc.args...)
+			assert.Equal(s.T(), s.buf.String(), tc.expected)
 		})
 	}
 }
 
-func (s *LoggerSuite) TestError() {
+func (s *LoggerSuite) TestLogger_Error() {
 	testCases := []struct {
 		message  string
 		args     []any
@@ -84,8 +79,8 @@ func (s *LoggerSuite) TestError() {
 
 	for _, tc := range testCases {
 		s.Run(tc.expected, func() {
-			Error(tc.message, tc.args...)
-			assert.Equal(s.T(), s.buffer.String(), tc.expected)
+			s.tl.Error(tc.message, tc.args...)
+			assert.Equal(s.T(), s.buf.String(), tc.expected)
 		})
 	}
 }

@@ -3,7 +3,9 @@ package cmd
 import (
 	"github.com/MarcoTomasRodriguez/hget/internal/download"
 	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // clearCmd represents the clear command
@@ -18,8 +20,14 @@ INFO: Removed downloads:
  ⁕  9218d55b6ba5da11-go1.17.2.src.tar.gz  ⇒  URL: https://golang.org/dl/go1.17.2.src.tar.gz size: 21.2 MB
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		logger := logger.NewConsoleLogger()
+		fs := afero.NewBasePathFs(afero.NewOsFs(), viper.GetString(ProgramFolderKey))
+
+		// Initialize manager.
+		manager := download.NewManager(fs)
+
 		// List downloads.
-		downloads, err := download.ListDownloads()
+		downloads, err := manager.ListDownloads()
 		if err != nil {
 			logger.Error("Could not list downloads: %v", err)
 			return
@@ -34,8 +42,8 @@ INFO: Removed downloads:
 		// List the removed downloads.
 		outputMessage := "Removed downloads:\n"
 		for _, d := range downloads {
-			if err := d.Delete(); err != nil {
-				logger.Error("Could not delete download: %v\n", err)
+			if err := manager.DeleteDownloadById(d.Id); err != nil {
+				logger.Error("Could not delete download file: %v\n", err)
 				continue
 			}
 
