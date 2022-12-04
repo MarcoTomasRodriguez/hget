@@ -29,6 +29,10 @@ func ResolveURL(rawURL string) (string, error) {
 	// If scheme is provided, attempt to execute a request.
 	scheme := match[1]
 	if scheme == "https://" || scheme == "http://" {
+		if _, err := http.Get(rawURL); err != nil {
+			return "", URLCannotBeResolvedError("server not available")
+		}
+
 		return rawURL, nil
 	}
 
