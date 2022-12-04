@@ -54,14 +54,15 @@ func (s *ManagerSuite) TestManager_GetDownloadByUrl() {
 	golangSampleYml, _ := yaml.Marshal(golangSample)
 	javaSampleYml, _ := yaml.Marshal(javaSample)
 
+	httputil.RegisterResponder(javaSample.URL, make([]byte, javaSample.Size), http.Header{"Accept-Ranges": []string{"bytes"}})
 	_ = afs.WriteFile("downloads/"+golangSample.Id+"/download.yml", golangSampleYml, os.ModePerm)
 	_ = afs.WriteFile("downloads/"+javaSample.Id+"/download.yml", javaSampleYml, os.ModePerm)
 
 	m := NewManager(fs)
-	download, err := m.GetDownloadById(golangSample.Id)
+	download, err := m.GetDownloadByUrl(javaSample.URL)
 
 	s.NoError(err)
-	s.Equal(golangSample, download)
+	s.Equal(javaSample, download)
 }
 
 func (s *ManagerSuite) TestManager_ListDownloads() {
