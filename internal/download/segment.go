@@ -22,14 +22,14 @@ func (s *Segment) Filename() string {
 	return fmt.Sprintf("segment.%02d", s.Id)
 }
 
-func (s *Segment) Download(url string, offset int64, writer io.Writer, ctx context.Context) error {
+func (s *Segment) Download(url string, position int64, writer io.Writer, ctx context.Context) error {
 	// Check if the segment is already downloaded.
-	if offset == s.End {
+	if position == s.End {
 		return nil
 	}
 
 	// Check if the segment has an overflow.
-	if s.Start < offset && offset > s.End && s.End != -1 {
+	if s.Start < position && position > s.End && s.End != -1 {
 		return SegmentOverflowError{}
 	}
 
@@ -40,7 +40,7 @@ func (s *Segment) Download(url string, offset int64, writer io.Writer, ctx conte
 	}
 
 	// Setup range download.
-	request.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", offset, s.End))
+	request.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", position, s.End))
 
 	// Download get request with range header.
 	response, err := http.DefaultClient.Do(request)

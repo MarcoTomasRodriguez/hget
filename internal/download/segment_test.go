@@ -37,21 +37,60 @@ func (s *SegmentSuite) TestSegment_Filename_ShouldDisplayFullIdWhenItHasTwoDigit
 	s.Equal("segment.13", segment.Filename())
 }
 
-func (s *SegmentSuite) TestSegmentdownload() {
-	body := make([]byte, golangSample.Size)
+func (s *SegmentSuite) TestSegment_Download() {
+	body := make([]byte, javaSample.Size)
 	rand.Read(body)
 
-	httputil.RegisterResponder(golangSample.URL, body, http.Header{"Accept-Ranges": []string{"bytes"}})
+	httputil.RegisterResponder(javaSample.URL, body, http.Header{"Accept-Ranges": []string{"bytes"}})
 
 	buffer := new(bytes.Buffer)
-	segment := Segment{Id: 1, Start: 1234, End: 4321}
+	segment := javaSample.Segments[1]
 
-	err := segment.Download(golangSample.URL, 1234, buffer, context.TODO())
+	err := segment.Download(javaSample.URL, segment.Start, buffer, context.TODO())
+
 	s.NoError(err)
-
 	s.Equal(body[segment.Start:segment.End+1], buffer.Bytes())
 }
 
+func (s *SegmentSuite) TestSegment_Download_ShouldDoNothingIfPositionIsEnd() {
+	body := make([]byte, javaSample.Size)
+	rand.Read(body)
+
+	httputil.RegisterResponder(javaSample.URL, body, http.Header{"Accept-Ranges": []string{"bytes"}})
+
+	buffer := new(bytes.Buffer)
+	segment := javaSample.Segments[1]
+
+	err := segment.Download(javaSample.URL, segment.End, buffer, context.TODO())
+
+	s.NoError(err)
+	s.Equal(0, buffer.Len())
+}
+
+func (s *SegmentSuite) TestSegment_Download_ShouldFailIfPositionExceedsRange() {
+	body := make([]byte, javaSample.Size)
+	rand.Read(body)
+
+	httputil.RegisterResponder(javaSample.URL, body, http.Header{"Accept-Ranges": []string{"bytes"}})
+
+	buffer := new(bytes.Buffer)
+	segment := javaSample.Segments[1]
+
+	err := segment.Download(javaSample.URL, segment.End+1, buffer, context.TODO())
+
+	s.ErrorIs(err, SegmentOverflowError{})
+	s.Equal(0, buffer.Len())
+}
+
+func (s *SegmentSuite) TestSegment_Download_ShouldFailIfServerNotAvailable() {
+	buffer := new(bytes.Buffer)
+	segment := javaSample.Segments[1]
+
+	err := segment.Download("th1ss1t3sh0uldn0tex1st.test/path/to/file.txt", segment.Start, buffer, context.TODO())
+
+	s.IsType(NetworkError(""), err)
+	s.Equal(0, buffer.Len())
+}
 func TestSegmentSuite(t *testing.T) {
 	suite.Run(t, new(SegmentSuite))
 }

@@ -12,8 +12,8 @@ var golangSample = &Download{
 	Id:       "v5pra7bt",
 	Name:     "go1.19.1.src.tar.gz",
 	URL:      "https://go.dev/dl/go1.19.1.src.tar.gz",
-	Size:     13000,
-	Segments: []Segment{{0, 0, 13000}},
+	Size:     1300,
+	Segments: []Segment{{0, 0, 1300}},
 }
 
 var javaSample = &Download{
@@ -119,7 +119,7 @@ func (s *DownloaderSuite) TestDownload_String() {
 	download, err := NewDownload(url, 8)
 
 	s.NoError(err)
-	s.Equal(" ⁕ 52fdfc07 ⇒ URL: https://go.dev/dl/go1.19.1.src.tar.gz Size: 13.0 kB\n", download.String())
+	s.Equal(" ⁕ 52fdfc07 ⇒ URL: https://go.dev/dl/go1.19.1.src.tar.gz Size: 1.3 kB\n", download.String())
 }
 
 func TestDownloadSuite(t *testing.T) {

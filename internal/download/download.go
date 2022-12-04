@@ -47,7 +47,7 @@ func NewDownload(rawUrl string, segmentsNum uint8) (*Download, error) {
 	// Download http request.
 	response, err := http.Get(file.URL)
 	if err != nil {
-		return nil, err
+		return nil, NetworkError(err.Error())
 	}
 
 	defer response.Body.Close()
