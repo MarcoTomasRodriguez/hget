@@ -25,6 +25,7 @@ type Manager struct {
 	afs afero.Afero
 }
 
+// GetDownloadById loads the download object from disk.
 func (m *Manager) GetDownloadById(id string) (*Download, error) {
 	// Initialize file struct.
 	download := &Download{}
@@ -48,6 +49,7 @@ func (m *Manager) GetDownloadById(id string) (*Download, error) {
 	return download, nil
 }
 
+// GetDownloadByUrl loads the download object from disk.
 func (m *Manager) GetDownloadByUrl(url string) (*Download, error) {
 	download := &Download{}
 
@@ -66,6 +68,7 @@ func (m *Manager) GetDownloadByUrl(url string) (*Download, error) {
 	return download, nil
 }
 
+// ListDownloads loads all download objects from disk.
 func (m *Manager) ListDownloads() ([]*Download, error) {
 	// List elements inside the internal download directory.
 	downloadFolders, err := m.afs.ReadDir("downloads")
@@ -86,38 +89,57 @@ func (m *Manager) ListDownloads() ([]*Download, error) {
 	return downloads, nil
 }
 
+// DeleteDownloadById deletes a download object from disk and removes all the child files.
 func (m *Manager) DeleteDownloadById(id string) error {
 	return m.afs.RemoveAll(filepath.Join("downloads", id))
 }
 
-func (m *Manager) StartDownload(file *Download, ctx context.Context) error {
-	var wg sync.WaitGroup
-
-	// Initialize download folder.
-	downloadFolder := filepath.Join("downloads", file.Id)
+// initDownloadFilesystem creates the download folder and initializes a restrictive base path filesystem.
+func (m *Manager) initDownloadFilesystem(downloadId string) (afero.Afero, error) {
+	// Create download folder.
+	downloadFolder := filepath.Join("downloads", downloadId)
 	if err := m.afs.MkdirAll(downloadFolder, os.ModePerm); err != nil {
-		return FilesystemError(err.Error())
+		return afero.Afero{}, FilesystemError(err.Error())
 	}
 
-	// Initialize filesystem.
-	afs := afero.Afero{Fs: afero.NewBasePathFs(m.afs, downloadFolder)}
+	return afero.Afero{Fs: afero.NewBasePathFs(m.afs, downloadFolder)}, nil
+}
 
-	// Save download.yml
+// saveDownloadToFilesystem writes the download object into disk.
+func (m *Manager) saveDownloadToFilesystem(afs afero.Afero, download *Download) error {
+	// Create and open download.yml file.
+	downloadYml, err := afs.OpenFile("download.yml", os.O_CREATE|os.O_WRONLY, 0644)
+	defer func() { _ = downloadYml.Close() }()
+	if err != nil {
+		return err
+	}
+
+	encoder := yaml.NewEncoder(downloadYml)
+	defer func() { _ = encoder.Close() }()
+
+	return encoder.Encode(download)
+}
+
+// StartDownload downloads all file segments and joins them in the output folder.
+func (m *Manager) StartDownload(file *Download, ctx context.Context) error {
+	var wg sync.WaitGroup
+	var progressBars []*pb.ProgressBar
+
+	// Create download folder and initialize a restrictive filesystem.
+	afs, err := m.initDownloadFilesystem(file.Id)
+	if err != nil {
+		return err
+	}
+
+	// Save download object to disk.
 	if file.Size > 0 {
-		downloadYml, _ := afs.OpenFile("download.yml", os.O_CREATE|os.O_WRONLY, 0644)
-		defer func() { _ = downloadYml.Close() }()
-
-		encoder := yaml.NewEncoder(downloadYml)
-		defer func() { _ = encoder.Close() }()
-
-		_ = encoder.Encode(file)
+		if err := m.saveDownloadToFilesystem(afs, file); err != nil {
+			return err
+		}
 	}
 
 	// Create a channel to listen to the workers' return error.
 	workerErrors := make(chan error)
-
-	// Initialize progress bars.
-	var progressBars []*pb.ProgressBar
 
 	// Progress bar utilities.
 	showProgressBar := file.Size > 0 && isatty.IsTerminal(os.Stdout.Fd())
@@ -231,6 +253,7 @@ readChannels:
 	return nil
 }
 
+// NewManager initializes the manager object.
 func NewManager(fs afero.Fs) *Manager {
 	return &Manager{afero.Afero{Fs: fs}}
 }

@@ -7,21 +7,19 @@ import (
 	"net/http"
 )
 
-type SegmentDownloader interface {
-	Filename() string
-	Download(writer io.Writer, offset int64, ctx context.Context)
-}
-
+// Segment stores the start and end points of a download's segment.
 type Segment struct {
 	Id    uint8 `yaml:"id"`
 	Start int64 `yaml:"start"`
 	End   int64 `yaml:"end"`
 }
 
+// Filename returns the segment's filename.
 func (s *Segment) Filename() string {
 	return fmt.Sprintf("segment.%02d", s.Id)
 }
 
+// Download starts a range download at a given position and copies the output to the writer.
 func (s *Segment) Download(url string, position int64, writer io.Writer, ctx context.Context) error {
 	// Check if the segment is already downloaded.
 	if position == s.End {

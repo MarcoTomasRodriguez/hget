@@ -26,6 +26,7 @@ func (l *Logger) Error(message string, a ...interface{}) {
 	l.logger.Println(color.RedString("ERROR:"), fmt.Sprintf(message, a...))
 }
 
+// NewConsoleLogger creates a logger using the console as output.
 func NewConsoleLogger() *Logger {
 	return &Logger{logger: log.New(os.Stdout, "", 0)}
 }

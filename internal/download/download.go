@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 )
 
+// Download stores the information of a resource that can be downloaded.
 type Download struct {
 	Id       string    `yaml:"id"`
 	Name     string    `yaml:"name"`
@@ -20,6 +21,7 @@ type Download struct {
 	Segments []Segment `yaml:"segments"`
 }
 
+// String returns a colored formatted string with the download's Id, URL and Size.
 func (f *Download) String() string {
 	return fmt.Sprintln(
 		" ⁕", color.HiCyanString(f.Id), "⇒",
@@ -28,6 +30,7 @@ func (f *Download) String() string {
 	)
 }
 
+// NewDownload initializes the download object by executing a GET request to the resource and analyzing its headers.
 func NewDownload(rawUrl string, segmentsNum uint8) (*Download, error) {
 	var err error
 	file := &Download{}
