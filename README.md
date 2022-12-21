@@ -20,7 +20,7 @@
     <br />
     <img src="https://img.shields.io/github/license/marcotomasrodriguez/hget?label=Licence&style=flat-square&color=blue">
     <img src="https://img.shields.io/github/release/marcotomasrodriguez/hget?display_name=tag&sort=semver&label=Release&style=flat-square&color=blue">
-    <img src="https://img.shields.io/github/workflow/status/marcotomasrodriguez/hget/Test?label=Tests&style=flat-square">
+    <img src="https://img.shields.io/github/actions/workflow/status/marcotomasrodriguez/hget/test.yml?branch=main&label=Tests&style=flat-square">
   </p>
 </div>
 
