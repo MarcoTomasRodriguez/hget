@@ -28,7 +28,7 @@ func (s *Segment) Download(url string, position int64, writer io.Writer, ctx con
 
 	// Check if the segment has an overflow.
 	if s.Start < position && position > s.End && s.End != -1 {
-		return SegmentOverflowError{}
+		return SegmentOverflowErr
 	}
 
 	// Send http request.
@@ -50,7 +50,7 @@ func (s *Segment) Download(url string, position int64, writer io.Writer, ctx con
 
 	_, err = io.Copy(writer, response.Body)
 	if err != nil {
-		return IOCopyError(err.Error())
+		return BufferCopyErr
 	}
 
 	return nil

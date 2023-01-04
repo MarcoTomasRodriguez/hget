@@ -2,19 +2,13 @@ package download
 
 import (
 	"context"
-	"fmt"
 	"github.com/MarcoTomasRodriguez/hget/pkg/httputil"
-	"github.com/cheggaaa/pb"
-	"github.com/fatih/color"
-	"github.com/mattn/go-isatty"
 	"github.com/samber/lo"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
-	"io"
 	ioFs "io/fs"
 	"os"
 	"path/filepath"
-	"sync"
 )
 
 type Manager struct {
@@ -32,18 +26,18 @@ func (m *Manager) GetDownloadById(id string) (*Download, error) {
 
 	// Check if download file exists.
 	if exists, _ := m.afs.DirExists("downloads/" + id); !exists {
-		return nil, NonexistentDownloadError{}
+		return nil, NonexistentDownloadErr
 	}
 
 	// Read download information.
 	fileBytes, err := m.afs.ReadFile("downloads/" + id + "/download.yml")
 	if err != nil {
-		return nil, BrokenDownloadError{}
+		return nil, BrokenDownloadErr
 	}
 
 	// Unmarshal toml download into the file struct.
 	if err := yaml.Unmarshal(fileBytes, &download); err != nil {
-		return nil, BrokenDownloadError{}
+		return nil, BrokenDownloadErr
 	}
 
 	return download, nil
@@ -106,7 +100,7 @@ func (m *Manager) initDownloadFilesystem(downloadId string) (afero.Afero, error)
 }
 
 // saveDownloadToFilesystem writes the download object into disk.
-func (m *Manager) saveDownloadToFilesystem(afs afero.Afero, download *Download) error {
+func (m *Manager) saveDownloadToFilesystem(download *Download, afs afero.Afero) error {
 	// Create and open download.yml file.
 	downloadYml, err := afs.OpenFile("download.yml", os.O_CREATE|os.O_WRONLY, 0644)
 	defer func() { _ = downloadYml.Close() }()
@@ -122,9 +116,6 @@ func (m *Manager) saveDownloadToFilesystem(afs afero.Afero, download *Download) 
 
 // StartDownload downloads all file segments and joins them in the output folder.
 func (m *Manager) StartDownload(file *Download, ctx context.Context) error {
-	var wg sync.WaitGroup
-	var progressBars []*pb.ProgressBar
-
 	// Create download folder and initialize a restrictive filesystem.
 	afs, err := m.initDownloadFilesystem(file.Id)
 	if err != nil {
@@ -133,124 +124,12 @@ func (m *Manager) StartDownload(file *Download, ctx context.Context) error {
 
 	// Save download object to disk.
 	if file.Size > 0 {
-		if err := m.saveDownloadToFilesystem(afs, file); err != nil {
+		if err := m.saveDownloadToFilesystem(file, afs); err != nil {
 			return err
 		}
 	}
 
-	// Create a channel to listen to the workers' return error.
-	workerErrors := make(chan error)
-
-	// Progress bar utilities.
-	showProgressBar := file.Size > 0 && isatty.IsTerminal(os.Stdout.Fd())
-
-	for i, segment := range file.Segments {
-		var progressBar *pb.ProgressBar
-
-		// Create the segment file with permissions: -rw-r--r--.
-		segmentFile, err := afs.OpenFile(segment.Filename(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-		if err != nil {
-			return FilesystemError(err.Error())
-		}
-
-		segmentStat, err := segmentFile.Stat()
-		segmentOffset := segment.Start + segmentStat.Size()
-		if segmentOffset >= segment.End {
-			continue
-		}
-
-		// Add progress bar to pool.
-		if showProgressBar {
-			progressBar = pb.New64(segment.End - segmentOffset).SetUnits(pb.U_BYTES).Prefix(
-				color.CyanString(fmt.Sprintf("Worker #%d", i)),
-			)
-			progressBars = append(progressBars, progressBar)
-		}
-
-		// Worker thread.
-		wg.Add(1)
-		go func(segment Segment, segmentFile afero.File, progressBar *pb.ProgressBar, segmentOffset int64) {
-			var segmentWriter io.Writer = segmentFile
-
-			defer wg.Done()
-			defer segmentFile.Close()
-
-			if progressBar != nil {
-				defer progressBar.Finish()
-				segmentWriter = io.MultiWriter(segmentWriter, progressBar)
-			}
-
-			if err := segment.Download(file.URL, segmentOffset, segmentWriter, ctx); err != nil {
-				workerErrors <- err
-			}
-		}(segment, segmentFile, progressBar, segmentOffset)
-	}
-
-	// Start progress bar.
-	if showProgressBar {
-		pool, _ := pb.StartPool(progressBars...)
-		defer func() { _ = pool.Stop() }()
-	}
-
-	waitGroupDone := make(chan struct{})
-	go func() {
-		defer close(waitGroupDone)
-		wg.Wait()
-	}()
-
-	contextDone := ctx.Done()
-
-readChannels:
-	for {
-		select {
-		case err := <-workerErrors:
-			return err
-		case <-contextDone:
-			return CancelledDownloadError("user cancelled")
-		case <-waitGroupDone:
-			break readChannels
-		}
-	}
-
-	// Open output file in write-only mode with permissions: -rw-r--r--.
-	outputFile, err := afs.OpenFile(file.Name, os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return FilesystemError(err.Error())
-	}
-
-	defer outputFile.Close()
-
-	// Setup progress progressBar.
-	var progressBar *pb.ProgressBar
-	if showProgressBar {
-		progressBar = pb.StartNew(len(file.Segments)).Prefix(color.CyanString("Merging"))
-		defer progressBar.Finish()
-	}
-
-	// Join the segments into the output file.
-	for _, s := range file.Segments {
-		// Open segment file.
-		segmentFile, err := afs.Open(s.Filename())
-		if err != nil {
-			return FilesystemError(err.Error())
-		}
-
-		// Append worker file to output file.
-		if _, err = io.Copy(outputFile, segmentFile); err != nil {
-			return IOCopyError(err.Error())
-		}
-
-		// Remove segment file.
-		if err := afs.Remove(s.Filename()); err != nil {
-			return FilesystemError(err.Error())
-		}
-
-		if showProgressBar {
-			progressBar.Increment()
-		}
-	}
-
-	return nil
+	return file.Download(afs, ctx)
 }
 
 // NewManager initializes the manager object.

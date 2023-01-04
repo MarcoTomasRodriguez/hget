@@ -78,7 +78,7 @@ func (s *SegmentSuite) TestSegment_Download_ShouldFailIfPositionExceedsRange() {
 
 	err := segment.Download(javaSample.URL, segment.End+1, buffer, context.TODO())
 
-	s.ErrorIs(err, SegmentOverflowError{})
+	s.ErrorIs(err, SegmentOverflowErr)
 	s.Equal(0, buffer.Len())
 }
 

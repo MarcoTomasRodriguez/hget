@@ -2,6 +2,7 @@ package httputil
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/jarcoal/httpmock"
 	"io"
 	"net/http"
@@ -9,50 +10,41 @@ import (
 	"strconv"
 )
 
-type URLCannotBeResolvedError string
+var (
+	InvalidUrlErr         = fmt.Errorf("invalid url")
+	ServerNotAvailableErr = fmt.Errorf("server not available")
+)
 
-func (e URLCannotBeResolvedError) Error() string {
-	return "url cannot be resolved: " + string(e)
-}
-
-var urlRegex = regexp.MustCompile("^([A-Za-z]+://)?[-A-Za-z\\d+&@#/%?=~_|!:,.;]+[-A-Za-z\\d+&@#/%=~_|]$")
+var urlRegex = regexp.MustCompile("^(https?://)?[-A-Za-z\\d+&@#/%?=~_|!,.;]+[-A-Za-z\\d+&@#/%=~_|]$")
 
 // ResolveURL resolves the url adding the http scheme, preferring https over http.
 func ResolveURL(rawURL string) (string, error) {
-	match := urlRegex.FindStringSubmatch(rawURL)
+	urlParts := urlRegex.FindStringSubmatch(rawURL)
 
-	// Check if rawURL is empty.
-	if len(match) == 0 {
-		return "", URLCannotBeResolvedError("invalid url")
+	// Check if rawURL matches the regex.
+	if len(urlParts) < 1 {
+		return "", InvalidUrlErr
 	}
 
 	// If scheme is provided, attempt to execute a request.
-	scheme := match[1]
-	if scheme == "https://" || scheme == "http://" {
+	if urlParts[1] != "" {
 		if _, err := http.Get(rawURL); err != nil {
-			return "", URLCannotBeResolvedError("server not available")
+			return "", ServerNotAvailableErr
 		}
 
 		return rawURL, nil
 	}
 
-	if scheme != "" {
-		return "", URLCannotBeResolvedError("invalid scheme")
-	}
-
-	// Resolve using https.
+	// Prefer https over http.
 	if url, err := ResolveURL("https://" + rawURL); err == nil {
 		return url, nil
 	}
 
-	// Resolve using http.
-	if url, err := ResolveURL("http://" + rawURL); err == nil {
-		return url, nil
-	}
-
-	return "", URLCannotBeResolvedError("cannot find a matching scheme")
+	// If not available over https, try with http.
+	return ResolveURL("http://" + rawURL)
 }
 
+// RegisterResponder registers a mock HTTP GET responder with support for ranges.
 func RegisterResponder(url string, body []byte, header http.Header) {
 	httpmock.RegisterResponder("GET", url, func(request *http.Request) (*http.Response, error) {
 		start := 0

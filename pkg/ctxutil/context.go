@@ -7,8 +7,8 @@ import (
 	"syscall"
 )
 
-// NewCancelableContext creates a ctxutil that can be canceled from the logger.
-// For example, by typing Ctrl + C.
+// NewCancelableContext creates a context that can be cancelled via a console termination, by starting a background
+// goroutine listening to termination events.
 func NewCancelableContext(ctx context.Context) context.Context {
 	ctx, cancel := context.WithCancel(ctx)
 

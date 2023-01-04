@@ -1,42 +1,18 @@
 package download
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
-type NonexistentDownloadError struct{}
-
-func (e NonexistentDownloadError) Error() string {
-	return fmt.Sprintf("download does not exist")
-}
-
-type BrokenDownloadError struct{}
-
-func (e BrokenDownloadError) Error() string {
-	return fmt.Sprintf("download is broken")
-}
-
-type InvalidFilenameError struct{}
-
-func (e InvalidFilenameError) Error() string {
-	return "invalid filename"
-}
-
-type WorkerError string
-
-func (e WorkerError) Error() string {
-	return fmt.Sprintf("worker error: %s", string(e))
-}
-
-type CancelledDownloadError string
-
-func (e CancelledDownloadError) Error() string {
-	return fmt.Sprintf("cancelled download: %s", string(e))
-}
-
-type SegmentOverflowError struct{}
-
-func (e SegmentOverflowError) Error() string {
-	return "segment overflow"
-}
+var (
+	NonexistentDownloadErr   = errors.New("download does not exist")
+	UserCancelledDownloadErr = errors.New("user cancelled download")
+	BrokenDownloadErr        = errors.New("download is broken")
+	InvalidFilenameErr       = errors.New("invalid filename")
+	SegmentOverflowErr       = errors.New("segment overflow")
+	BufferCopyErr            = errors.New("could not copy buffer")
+)
 
 type NetworkError string
 
@@ -48,10 +24,4 @@ type FilesystemError string
 
 func (e FilesystemError) Error() string {
 	return fmt.Sprintf("filesystem error: %s", string(e))
-}
-
-type IOCopyError string
-
-func (e IOCopyError) Error() string {
-	return fmt.Sprintf("buffer copy error: %s", string(e))
 }

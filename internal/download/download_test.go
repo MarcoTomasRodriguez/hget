@@ -61,7 +61,7 @@ func (s *DownloaderSuite) TestNewDownload_ShouldFailIfInvalidURL() {
 	download, err := NewDownload("ftp://go.dev/dl/go1.19.1.src.tar.gz", 8)
 
 	s.Nil(download)
-	s.ErrorIs(err, httputil.URLCannotBeResolvedError("invalid scheme"))
+	s.ErrorIs(err, httputil.InvalidUrlErr)
 }
 
 func (s *DownloaderSuite) TestNewDownload_ShouldFailIfNotFound() {

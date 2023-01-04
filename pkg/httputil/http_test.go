@@ -63,28 +63,28 @@ func (s *HttpUtilSuite) TestResolveURL_WithoutScheme_ResolveHttp() {
 func (s *HttpUtilSuite) TestResolveURL_ServerNotAvailable() {
 	url, err := ResolveURL("https://" + testUrl)
 
-	s.ErrorIs(err, URLCannotBeResolvedError("server not available"))
+	s.ErrorIs(err, ServerNotAvailableErr)
 	s.Empty(url)
 }
 
 func (s *HttpUtilSuite) TestResolveURL_InvalidScheme() {
 	url, err := ResolveURL("ftp://" + testUrl)
 
-	s.ErrorIs(err, URLCannotBeResolvedError("invalid scheme"))
+	s.ErrorIs(err, InvalidUrlErr)
 	s.Empty(url)
 }
 
 func (s *HttpUtilSuite) TestResolveURL_InvalidUrl() {
 	url, err := ResolveURL("")
 
-	s.ErrorIs(err, URLCannotBeResolvedError("invalid url"))
+	s.ErrorIs(err, InvalidUrlErr)
 	s.Empty(url)
 }
 
 func (s *HttpUtilSuite) TestResolveURL_CannotFindMatchingScheme() {
 	url, err := ResolveURL(testUrl)
 
-	s.ErrorIs(err, URLCannotBeResolvedError("cannot find a matching scheme"))
+	s.ErrorIs(err, ServerNotAvailableErr)
 	s.Empty(url)
 }
 
