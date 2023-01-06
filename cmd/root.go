@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/MarcoTomasRodriguez/hget/internal/download"
 	"github.com/MarcoTomasRodriguez/hget/pkg/ctxutil"
+	"github.com/MarcoTomasRodriguez/hget/pkg/progressbar"
 	"github.com/spf13/afero"
 	"math/rand"
 	"time"
@@ -25,45 +26,43 @@ const (
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "hget URL",
-	Short: "Interruptible and resumable download accelerator",
-	Long: `Interruptible and resumable download accelerator.
+	Short: "Interruptible and resumable _download accelerator",
+	Long: `Interruptible and resumable _download accelerator.
 
-hget allows you to download at the maximum speed possible using
-download threads and to stop and resume tasks.
+hget allows you to _download at the maximum speed possible using
+_download threads and to stop and resume tasks.
 `,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fs := afero.NewBasePathFs(afero.NewOsFs(), viper.GetString("program_folder"))
-		ctx := ctxutil.NewCancelableContext(context.Background())
 		logger := logger.NewConsoleLogger()
+		fs := afero.NewBasePathFs(afero.NewOsFs(), viper.GetString("download_folder"))
+		downloader := download.NewDownloader(download.NewNetwork(), download.NewStorage(fs), progressbar.NewProgressBar(), logger)
 
 		// Get number of workers from flags.
 		workers, _ := cmd.Flags().GetUint8("workers")
 
-		// Initialize downloader.
-		m := download.NewManager(fs)
-
-		// NewDownload download.
-		download, err := download.NewDownload(args[0], workers)
+		// Load download from url.
+		download, err := downloader.InitDownload(args[0], workers)
 		if err != nil {
 			logger.Error(err.Error())
 			return
 		}
 
 		// Start download.
-		if err := m.StartDownload(download, ctx); err != nil {
+		ctx := ctxutil.NewCancelableContext(context.Background())
+		if err := downloader.Download(download, ctx); err != nil {
 			logger.Error(err.Error())
 			return
 		}
 
 		// Move download to output folder.
-		if err := os.Rename(filepath.Join(viper.GetString("download_folder"), download.Id, download.Name), download.Name); err != nil {
+		if err := os.Rename(filepath.Join(viper.GetString("download_folder"), download.Id, "output"), download.Name); err != nil {
 			logger.Error(err.Error())
 			return
 		}
 
-		// Delete program download folder.
-		if err := m.DeleteDownloadById(download.Id); err != nil {
+		// Delete internal download folder.
+		if err := downloader.DeleteDownloadById(download.Id); err != nil {
 			logger.Error(err.Error())
 			return
 		}
@@ -86,9 +85,9 @@ func init() {
 	rootCmd.PersistentFlags().String(ProgramFolderKey, defaultProgramFolder, "Configures the program folder.")
 	_ = viper.BindPFlag(ProgramFolderKey, rootCmd.PersistentFlags().Lookup(ProgramFolderKey))
 
-	// Define download folder global flag.
+	// Define _download folder global flag.
 	defaultDownloadFolder := filepath.Join(homeDir, ".hget/downloads")
-	rootCmd.PersistentFlags().String(DownloadFolderKey, defaultDownloadFolder, "Configures the download folder.")
+	rootCmd.PersistentFlags().String(DownloadFolderKey, defaultDownloadFolder, "Configures the _download folder.")
 	_ = viper.BindPFlag(DownloadFolderKey, rootCmd.PersistentFlags().Lookup(DownloadFolderKey))
 
 	// Define log level global flag.
@@ -96,5 +95,8 @@ func init() {
 	_ = viper.BindPFlag("log_level", rootCmd.PersistentFlags().Lookup("log"))
 
 	// Define worker numbers flag.
-	rootCmd.Flags().Uint8P("workers", "n", uint8(runtime.NumCPU()), "Set number of download workers.")
+	rootCmd.Flags().Uint8P("workers", "n", uint8(runtime.NumCPU()), "Set number of _download workers.")
+
+	// Create internal download folder.
+	_ = afero.NewOsFs().MkdirAll(viper.GetString("download_folder"), 0755)
 }

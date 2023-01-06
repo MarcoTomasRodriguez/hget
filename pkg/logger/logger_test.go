@@ -10,12 +10,12 @@ import (
 
 type LoggerSuite struct {
 	suite.Suite
-	tl  *Logger
+	tl  Logger
 	buf bytes.Buffer
 }
 
 func (s *LoggerSuite) SetupSuite() {
-	s.tl = &Logger{logger: log.New(&s.buf, "", 0)}
+	s.tl = &consoleLogger{logger: log.New(&s.buf, "", 0)}
 }
 
 func (s *LoggerSuite) SetupTest() {
