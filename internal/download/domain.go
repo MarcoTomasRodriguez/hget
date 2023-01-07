@@ -24,7 +24,7 @@ type Segment struct {
 	End   int64  `yaml:"end"`
 }
 
-// String returns a colored formatted string with the _download's Id, URL and Size.
+// String returns a colored formatted string with the download's Id, URL and Size.
 func (d Download) String() string {
 	return fmt.Sprintln(
 		" ⁕", color.HiCyanString(d.Id), "⇒",

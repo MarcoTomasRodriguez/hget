@@ -3,9 +3,9 @@ package download
 import (
 	"errors"
 	"fmt"
+	"github.com/MarcoTomasRodriguez/hget/pkg/codec"
 	"github.com/samber/lo"
 	"github.com/spf13/afero"
-	"gopkg.in/yaml.v3"
 	"io"
 	ioFs "io/fs"
 	"os"
@@ -18,13 +18,10 @@ var (
 
 type Storage interface {
 	ListDownloads() ([]Download, error)
-
 	ReadDownloadSpec(id string) (Download, error)
 	WriteDownloadSpec(download Download) error
-
 	OpenDownloadOutput(id string) (io.ReadWriteCloser, error)
 	DeleteDownload(id string) error
-
 	OpenSegment(id string) (io.ReadWriteCloser, error)
 	GetSegmentSize(id string) (int64, error)
 	DeleteSegment(id string) error
@@ -37,7 +34,8 @@ func (e FilesystemError) Error() string {
 }
 
 type storage struct {
-	afs afero.Afero
+	afs   afero.Afero
+	codec codec.Codec
 }
 
 func (f storage) ListDownloads() ([]Download, error) {
@@ -63,14 +61,14 @@ func (f storage) ListDownloads() ([]Download, error) {
 func (f storage) ReadDownloadSpec(id string) (Download, error) {
 	download := Download{}
 
-	// Read _download information.
-	fileBytes, err := f.afs.ReadFile(filepath.Join(id, "download.yml"))
+	// Read download specification.
+	in, err := f.afs.ReadFile(filepath.Join(id, "download."+f.codec.Extension()))
 	if err != nil {
 		return Download{}, BrokenDownloadErr
 	}
 
-	// Unmarshal toml _download into the file struct.
-	if err := yaml.Unmarshal(fileBytes, &download); err != nil {
+	// Unmarshal encoded download.
+	if err := f.codec.Unmarshal(in, &download); err != nil {
 		return Download{}, BrokenDownloadErr
 	}
 
@@ -79,16 +77,15 @@ func (f storage) ReadDownloadSpec(id string) (Download, error) {
 
 func (f storage) WriteDownloadSpec(download Download) error {
 	_ = f.afs.MkdirAll(download.Id, 0755)
-	file, err := f.afs.OpenFile(filepath.Join(download.Id, "download.yml"), os.O_CREATE|os.O_WRONLY, 0644)
+
+	// Marshall download.
+	out, err := f.codec.Marshal(download)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = file.Close() }()
 
-	encoder := yaml.NewEncoder(file)
-	defer func() { _ = encoder.Close() }()
-
-	return encoder.Encode(download)
+	// Open download specification.
+	return f.afs.WriteFile(filepath.Join(download.Id, "download."+f.codec.Extension()), out, 0644)
 }
 
 func (f storage) OpenDownloadOutput(id string) (io.ReadWriteCloser, error) {
@@ -116,8 +113,8 @@ func (f storage) DeleteSegment(id string) error {
 	return f.afs.Remove(id)
 }
 
-func NewStorage(fs afero.Fs) Storage {
-	return storage{afs: afero.Afero{Fs: fs}}
+func NewStorage(fs afero.Fs, codec codec.Codec) Storage {
+	return storage{afs: afero.Afero{Fs: fs}, codec: codec}
 }
 
 var _ Storage = (*storage)(nil)

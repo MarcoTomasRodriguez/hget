@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"github.com/MarcoTomasRodriguez/hget/internal/download"
+	"github.com/MarcoTomasRodriguez/hget/pkg/codec"
 	"github.com/MarcoTomasRodriguez/hget/pkg/ctxutil"
 	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
 	"github.com/MarcoTomasRodriguez/hget/pkg/progressbar"
@@ -26,7 +27,8 @@ $ hget resume 01cc0f0a3d94af18-file1.txt`,
 		// Initialize downloader.
 		logger := logger.NewConsoleLogger()
 		fs := afero.NewBasePathFs(afero.NewOsFs(), viper.GetString("download_folder"))
-		downloader := download.NewDownloader(download.NewNetwork(), download.NewStorage(fs), progressbar.NewProgressBar(), logger)
+		storage := download.NewStorage(fs, codec.NewYAMLCodec())
+		downloader := download.NewDownloader(download.NewNetwork(), storage, progressbar.NewProgressBar(), logger)
 
 		// Read download specification.
 		download, err := downloader.FindDownloadById(args[0])

@@ -129,14 +129,12 @@ func (s downloader) Download(download Download, ctx context.Context) error {
 		wg.Wait()
 	}()
 
-	contextDone := ctx.Done()
-
 readChannels:
 	for {
 		select {
 		case err := <-workerErrors:
 			return err
-		case <-contextDone:
+		case <-ctx.Done():
 			return UserCancelledDownloadErr
 		case <-waitGroupDone:
 			break readChannels
