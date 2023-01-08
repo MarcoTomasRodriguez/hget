@@ -100,7 +100,10 @@ func (s downloader) Download(download Download, ctx context.Context) error {
 		// Add progress bar to pool.
 		total := segment.End - segmentOffset
 		prefix := color.CyanString(fmt.Sprintf("Worker #%d", i))
-		progressWriter := s.progressbar.Add(total, progressbar.Bytes, prefix)
+		progressWriter, err := s.progressbar.Add(total, progressbar.Bytes, prefix)
+		if err != nil {
+			return err
+		}
 
 		// Worker thread.
 		wg.Add(1)

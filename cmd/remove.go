@@ -28,7 +28,7 @@ INFO: _download removed successfully.
 		storage := download.NewStorage(fs, codec.NewYAMLCodec())
 		downloader := download.NewDownloader(download.NewNetwork(), storage, progressbar.NewProgressBar(), logger)
 
-		// Delete _download using first command line argument as id.
+		// Delete download using first command line argument as id.
 		if err := downloader.DeleteDownloadById(args[0]); err != nil {
 			logger.Error("Could not remove download: %v", err)
 			return

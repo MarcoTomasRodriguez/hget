@@ -35,6 +35,7 @@ _download threads and to stop and resume tasks.
 `,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		// Initialize downloader.
 		logger := logger.NewConsoleLogger()
 		fs := afero.NewBasePathFs(afero.NewOsFs(), viper.GetString("download_folder"))
 		storage := download.NewStorage(fs, codec.NewYAMLCodec())

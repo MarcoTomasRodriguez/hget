@@ -46,7 +46,7 @@ $ hget resume 01cc0f0a3d94af18-file1.txt`,
 			return
 		}
 
-		// Delete program _download folder.
+		// Delete internal download folder.
 		if err := downloader.DeleteDownloadById(download.Id); err != nil {
 			logger.Error(err.Error())
 			return
