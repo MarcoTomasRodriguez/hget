@@ -38,6 +38,7 @@ type storage struct {
 	codec codec.Codec
 }
 
+// ListDownloads lists the download specifications from the filesystem.
 func (f storage) ListDownloads() ([]Download, error) {
 	// List elements inside the internal download directory.
 	downloadFolders, err := f.afs.ReadDir(".")
@@ -58,6 +59,7 @@ func (f storage) ListDownloads() ([]Download, error) {
 	return downloads, nil
 }
 
+// ReadDownloadSpec reads the download specification from the filesystem.
 func (f storage) ReadDownloadSpec(id string) (Download, error) {
 	download := Download{}
 
@@ -75,6 +77,7 @@ func (f storage) ReadDownloadSpec(id string) (Download, error) {
 	return download, nil
 }
 
+// WriteDownloadSpec saves the download specification on the filesystem.
 func (f storage) WriteDownloadSpec(download Download) error {
 	_ = f.afs.MkdirAll(download.Id, 0755)
 
@@ -88,18 +91,22 @@ func (f storage) WriteDownloadSpec(download Download) error {
 	return f.afs.WriteFile(filepath.Join(download.Id, "download."+f.codec.Extension()), out, 0644)
 }
 
+// OpenDownloadOutput opens the download output file by id and returns the file for read and write.
 func (f storage) OpenDownloadOutput(id string) (io.ReadWriteCloser, error) {
 	return f.afs.OpenFile(filepath.Join(id, "output"), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 }
 
+// DeleteDownload deletes the whole download folder from the filesystem.
 func (f storage) DeleteDownload(id string) error {
 	return f.afs.RemoveAll(id)
 }
 
+// OpenSegment opens the size of a segment by id and returns the file for read and write.
 func (f storage) OpenSegment(id string) (io.ReadWriteCloser, error) {
 	return f.afs.OpenFile(id, os.O_CREATE|os.O_RDWR, 0644)
 }
 
+// GetSegmentSize gets the size of a segment by id.
 func (f storage) GetSegmentSize(id string) (int64, error) {
 	fileInfo, err := f.afs.Stat(id)
 	if err != nil {
@@ -109,10 +116,12 @@ func (f storage) GetSegmentSize(id string) (int64, error) {
 	return fileInfo.Size(), nil
 }
 
+// DeleteSegment deletes a segment file by id from the filesystem.
 func (f storage) DeleteSegment(id string) error {
 	return f.afs.Remove(id)
 }
 
+// NewStorage instantiates a new Storage object.
 func NewStorage(fs afero.Fs, codec codec.Codec) Storage {
 	return storage{afs: afero.Afero{Fs: fs}, codec: codec}
 }

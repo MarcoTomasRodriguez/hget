@@ -30,6 +30,7 @@ type downloader struct {
 	logger      logger.Logger
 }
 
+// InitDownload extracts the download specification from a web resource.
 func (s downloader) InitDownload(url string, workers uint8) (Download, error) {
 	resource, err := s.network.FetchResource(url)
 	if err != nil {
@@ -77,6 +78,7 @@ func (s downloader) InitDownload(url string, workers uint8) (Download, error) {
 	}, nil
 }
 
+// Download takes a download specification and downloads it.
 func (s downloader) Download(download Download, ctx context.Context) error {
 	var wg sync.WaitGroup
 
@@ -172,14 +174,17 @@ readChannels:
 	return nil
 }
 
+// FindAllDownloads finds valid download specifications.
 func (s downloader) FindAllDownloads() ([]Download, error) {
 	return s.storage.ListDownloads()
 }
 
+// FindDownloadById finds a download specification by its id.
 func (s downloader) FindDownloadById(id string) (Download, error) {
 	return s.storage.ReadDownloadSpec(id)
 }
 
+// FindDownloadByUrl finds a download specification by its url.
 func (s downloader) FindDownloadByUrl(url string) (Download, error) {
 	downloads, err := s.storage.ListDownloads()
 	if err != nil {
@@ -195,10 +200,13 @@ func (s downloader) FindDownloadByUrl(url string) (Download, error) {
 	return Download{}, nil
 }
 
+// DeleteDownloadById deletes the download folder including the specification file, downloaded segments and the
+// eventual merged result.
 func (s downloader) DeleteDownloadById(id string) error {
 	return s.storage.DeleteDownload(id)
 }
 
+// NewDownloader instantiates a new Downloader object.
 func NewDownloader(network Network, storage Storage, progressbar progressbar.ProgressBar, logger logger.Logger) Downloader {
 	return &downloader{network, storage, progressbar, logger}
 }

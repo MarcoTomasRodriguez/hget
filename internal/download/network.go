@@ -39,6 +39,7 @@ func (e NetworkError) Error() string {
 
 type network struct{}
 
+// FetchResource fetches an HTTP resource and retrieves a description of the resource.
 func (n network) FetchResource(URL string) (Resource, error) {
 	// Resolve URL.
 	URL, err := httputil.ResolveURL(URL)
@@ -82,6 +83,7 @@ func (n network) FetchResource(URL string) (Resource, error) {
 	}, nil
 }
 
+// DownloadResource downloads a file using range-downloads and outputs the contents on the writer.
 func (n network) DownloadResource(url string, start int64, end int64, writer io.Writer, ctx context.Context) error {
 	// Check if the segment has an overflow.
 	if start < 0 || start > end {
@@ -116,6 +118,7 @@ func (n network) DownloadResource(url string, start int64, end int64, writer io.
 	return nil
 }
 
+// NewNetwork instantiates a new Network object.
 func NewNetwork() Network {
 	return &network{}
 }
