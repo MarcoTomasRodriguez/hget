@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"github.com/MarcoTomasRodriguez/hget/internal/download"
+	"github.com/MarcoTomasRodriguez/hget/pkg/codec"
 	"github.com/MarcoTomasRodriguez/hget/pkg/ctxutil"
 	"github.com/MarcoTomasRodriguez/hget/pkg/progressbar"
 	"github.com/spf13/afero"
@@ -34,9 +35,11 @@ _download threads and to stop and resume tasks.
 `,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		// Initialize downloader.
 		logger := logger.NewConsoleLogger()
 		fs := afero.NewBasePathFs(afero.NewOsFs(), viper.GetString("download_folder"))
-		downloader := download.NewDownloader(download.NewNetwork(), download.NewStorage(fs), progressbar.NewProgressBar(), logger)
+		storage := download.NewStorage(fs, codec.NewYAMLCodec())
+		downloader := download.NewDownloader(download.NewNetwork(), storage, progressbar.NewProgressBar(), logger)
 
 		// Get number of workers from flags.
 		workers, _ := cmd.Flags().GetUint8("workers")

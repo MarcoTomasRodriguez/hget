@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/MarcoTomasRodriguez/hget/internal/download"
 	"github.com/MarcoTomasRodriguez/hget/mocks"
+	"github.com/MarcoTomasRodriguez/hget/pkg/codec"
 	"github.com/MarcoTomasRodriguez/hget/pkg/httputil"
 	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
 	"github.com/MarcoTomasRodriguez/hget/pkg/progressbar"
@@ -102,7 +103,8 @@ func (s *DownloaderSuite) TestDownloader_Download() {
 
 	fs := afero.NewMemMapFs()
 	afs := afero.Afero{Fs: fs}
-	downloader := download.NewDownloader(download.NewNetwork(), download.NewStorage(fs), s.progress, s.logger)
+	yamlCodec := codec.NewYAMLCodec()
+	downloader := download.NewDownloader(download.NewNetwork(), download.NewStorage(fs, yamlCodec), s.progress, s.logger)
 
 	content := make([]byte, javaSample.Size)
 	rand.Read(content)

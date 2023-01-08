@@ -5,6 +5,7 @@ package download_test
 
 import (
 	"github.com/MarcoTomasRodriguez/hget/internal/download"
+	"github.com/MarcoTomasRodriguez/hget/pkg/codec"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/suite"
 	"gopkg.in/yaml.v3"
@@ -15,12 +16,14 @@ import (
 type StorageSuite struct {
 	suite.Suite
 	afs     afero.Afero
+	codec   codec.Codec
 	storage download.Storage
 }
 
 func (s *StorageSuite) SetupTest() {
 	s.afs = afero.Afero{Fs: afero.NewMemMapFs()}
-	s.storage = download.NewStorage(s.afs.Fs)
+	s.codec = codec.NewYAMLCodec()
+	s.storage = download.NewStorage(s.afs.Fs, s.codec)
 }
 
 func (s *StorageSuite) TestStorage_ReadDownloadSpec() {

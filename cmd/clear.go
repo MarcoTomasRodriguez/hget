@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/MarcoTomasRodriguez/hget/internal/download"
+	"github.com/MarcoTomasRodriguez/hget/pkg/codec"
 	"github.com/MarcoTomasRodriguez/hget/pkg/logger"
 	"github.com/MarcoTomasRodriguez/hget/pkg/progressbar"
 	"github.com/spf13/afero"
@@ -24,7 +25,8 @@ INFO: Removed downloads:
 		// Initialize downloader.
 		logger := logger.NewConsoleLogger()
 		fs := afero.NewBasePathFs(afero.NewOsFs(), viper.GetString("download_folder"))
-		downloader := download.NewDownloader(download.NewNetwork(), download.NewStorage(fs), progressbar.NewProgressBar(), logger)
+		storage := download.NewStorage(fs, codec.NewYAMLCodec())
+		downloader := download.NewDownloader(download.NewNetwork(), storage, progressbar.NewProgressBar(), logger)
 
 		// List downloads.
 		downloads, err := downloader.FindAllDownloads()
