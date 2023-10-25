@@ -71,31 +71,23 @@ hget [-n workers] URL
 hget list
 ```
 
-![List demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gif/list.gif)
-
 ### Resume
 
 ```bash
-hget resume ID
+hget resume <ID>
 ```
-
-![Resume demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gif/resume.gif)
 
 ### Remove
 
 ```bash
-hget remove ID
+hget remove <ID>
 ```
-
-![Remove demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gif/remove.gif)
 
 ### Clear
 
 ```bash
 hget clear
 ```
-
-![Clear demo](https://raw.githubusercontent.com/MarcoTomasRodriguez/hget/assets/gif/clear.gif)
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
